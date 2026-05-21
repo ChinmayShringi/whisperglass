@@ -1336,7 +1336,7 @@ git commit -m "feat: compose overlay UI with black-and-white theme"
 - Modify: `src/main/index.ts` (replace scaffold contents)
 - Test: `tests/main/windows/position.test.ts`
 
-- [ ] **Step 1: Write the failing test for the position math**
+- [x] **Step 1: Write the failing test for the position math**
 
 Create `tests/main/windows/position.test.ts`:
 ```ts
@@ -1358,12 +1358,12 @@ describe('nextPosition', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/position.test.ts`
 Expected: FAIL, cannot find module `position`.
 
-- [ ] **Step 3: Implement the position math**
+- [x] **Step 3: Implement the position math**
 
 Create `src/main/windows/position.ts`:
 ```ts
@@ -1390,12 +1390,12 @@ export function nextPosition(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/position.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 5: Wire everything in the main entry point**
+- [x] **Step 5: Wire everything in the main entry point**
 
 Replace the contents of `src/main/index.ts`:
 ```ts
@@ -1481,7 +1481,7 @@ app.on('window-all-closed', () => {
 })
 ```
 
-- [ ] **Step 6: Verify the full build and the test suite**
+- [x] **Step 6: Verify the full build and the test suite**
 
 Run: `npm run typecheck`
 Expected: no type errors.
@@ -1492,7 +1492,7 @@ Expected: every test passes (smoke plus all Phase 1 tests).
 Run: `npm run build`
 Expected: build completes with no error.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/main/windows/position.ts src/main/index.ts tests/main/windows/position.test.ts
