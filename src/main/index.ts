@@ -1,7 +1,12 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { join } from 'path'
+import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createOverlayWindow } from './windows/overlay-window'
+import { createCodexService } from './codex/codex-service'
+import { checkCodexAvailability } from './codex/availability'
 import {
   createOverlayState,
   toggleInvisible,
@@ -12,8 +17,8 @@ import { applyOverlayState } from './windows/overlay-controller'
 import { nextPosition } from './windows/position'
 import { registerGlobalHotkeys, unregisterGlobalHotkeys } from './hotkeys/global-hotkeys'
 import { registerIpcHandlers } from './ipc/ipc-handlers'
-import { MOVE_STEP_PX } from './config/constants'
-import { IpcChannel, type HotkeyAction } from '../shared/types'
+import { MOVE_STEP_PX, CODEX } from './config/constants'
+import { IpcChannel, type HotkeyAction, type AskQuestionRequest } from '../shared/types'
 
 let overlay: BrowserWindow | null = null
 let state = createOverlayState()
@@ -49,6 +54,18 @@ function handleHotkey(action: HotkeyAction): void {
   pushState()
 }
 
+function getCodexVersion(): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile('codex', ['--version'], (error, stdout) => {
+      resolve(error ? null : stdout.trim() || null)
+    })
+  })
+}
+
+function emitToOverlay(channel: string, payload: unknown): void {
+  overlay?.webContents.send(channel, payload)
+}
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.customcluely.app')
   app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win))
@@ -63,12 +80,23 @@ app.whenReady().then(() => {
 
   state = setVisible(state, true)
 
+  const scratchRoot = join(app.getPath('userData'), CODEX.scratchDirName)
+  const codexService = createCodexService({ scratchRoot, emit: emitToOverlay })
+
   registerIpcHandlers(ipcMain, {
     onToggleInvisibility: () => {
       state = toggleInvisible(state)
       pushState()
+    },
+    onAskQuestion: (request: AskQuestionRequest) => {
+      void codexService.handleAsk(request)
     }
   })
+
+  void checkCodexAvailability({
+    getVersion: getCodexVersion,
+    authFileExists: () => existsSync(join(homedir(), '.codex', 'auth.json'))
+  }).then((status) => emitToOverlay(IpcChannel.CodexStatus, status))
 
   registerGlobalHotkeys(globalShortcut, handleHotkey)
 })
