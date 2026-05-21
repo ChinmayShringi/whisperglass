@@ -227,7 +227,7 @@ git commit -m "feat: add shared types and main-process constants"
 - Create: `src/main/windows/overlay-window.ts`
 - Test: `tests/main/windows/overlay-window-options.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/main/windows/overlay-window-options.test.ts`:
 ```ts
@@ -259,12 +259,12 @@ describe('buildOverlayWindowOptions', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/overlay-window-options.test.ts`
 Expected: FAIL, cannot find module `overlay-window-options`.
 
-- [ ] **Step 3: Implement the options builder**
+- [x] **Step 3: Implement the options builder**
 
 Create `src/main/windows/overlay-window-options.ts`:
 ```ts
@@ -297,12 +297,12 @@ export function buildOverlayWindowOptions(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/overlay-window-options.test.ts`
 Expected: 4 passed.
 
-- [ ] **Step 5: Implement the window factory glue**
+- [x] **Step 5: Implement the window factory glue**
 
 Create `src/main/windows/overlay-window.ts`:
 ```ts
@@ -322,12 +322,12 @@ export function createOverlayWindow(): BrowserWindow {
 }
 ```
 
-- [ ] **Step 6: Verify the build**
+- [x] **Step 6: Verify the build**
 
 Run: `npm run typecheck`
 Expected: no type errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/main/windows/overlay-window-options.ts src/main/windows/overlay-window.ts tests/main/windows/overlay-window-options.test.ts
