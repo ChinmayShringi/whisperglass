@@ -1152,7 +1152,7 @@ git commit -m "feat: add EyeToggle and SetupBanner components"
 - Create: `src/renderer/src/styles/theme.css`
 - Test: `tests/renderer/App.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/renderer/App.test.tsx`:
 ```tsx
@@ -1185,12 +1185,12 @@ describe('App', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/renderer/App.test.tsx`
 Expected: FAIL, the scaffold `App` does not export `App` or render these elements.
 
-- [ ] **Step 3: Implement the App composition**
+- [x] **Step 3: Implement the App composition**
 
 Replace the contents of `src/renderer/src/App.tsx`:
 ```tsx
@@ -1234,7 +1234,7 @@ export function App(): JSX.Element {
 export default App
 ```
 
-- [ ] **Step 4: Create the black-and-white theme**
+- [x] **Step 4: Create the black-and-white theme**
 
 Create `src/renderer/src/styles/theme.css`:
 ```css
@@ -1311,16 +1311,16 @@ body {
 }
 ```
 
-- [ ] **Step 5: Ensure the renderer entry point renders the named export**
+- [x] **Step 5: Ensure the renderer entry point renders the named export**
 
 Open `src/renderer/src/main.tsx`. Confirm it imports and renders `App`. If it uses a default import, leave it; the App file exports both named and default. No change needed unless the import path is broken.
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `npx vitest run tests/renderer/App.test.tsx`
 Expected: 2 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/renderer/src/App.tsx src/renderer/src/styles/theme.css tests/renderer/App.test.tsx

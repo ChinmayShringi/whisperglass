@@ -1,34 +1,37 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import React, { useEffect, useState } from 'react'
+import { CommandBar } from './components/CommandBar'
+import { TranscriptPanel } from './components/TranscriptPanel'
+import { AnswerPanel } from './components/AnswerPanel'
+import { EyeToggle } from './components/EyeToggle'
+import { SetupBanner } from './components/SetupBanner'
+import type { OverlayState, TranscriptSegment } from '../../shared/types'
+import './styles/theme.css'
 
-function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+export function App(): React.JSX.Element {
+  const [invisible, setInvisible] = useState(false)
+  const [activeQuestion, setActiveQuestion] = useState('')
+  const [segments] = useState<TranscriptSegment[]>([])
+
+  useEffect(() => {
+    const unsubscribe = window.customcluely.onOverlayState((state: OverlayState) => {
+      setInvisible(state.invisible)
+    })
+    return unsubscribe
+  }, [])
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
+    <div className="app">
+      <SetupBanner message={null} />
+      <div className="app__bar">
+        <CommandBar onSubmit={setActiveQuestion} />
+        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
       </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
+      {activeQuestion.length > 0 && (
+        <p className="app__active-question">{activeQuestion}</p>
+      )}
+      <AnswerPanel answer="" />
+      <TranscriptPanel segments={segments} />
+    </div>
   )
 }
 
