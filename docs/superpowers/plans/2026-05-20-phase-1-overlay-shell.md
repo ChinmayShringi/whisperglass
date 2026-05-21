@@ -1043,7 +1043,7 @@ git commit -m "feat: add transcript and answer panels"
 - Test: `tests/renderer/components/EyeToggle.test.tsx`
 - Test: `tests/renderer/components/SetupBanner.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/renderer/components/EyeToggle.test.tsx`:
 ```tsx
@@ -1088,12 +1088,12 @@ describe('SetupBanner', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/renderer/components/EyeToggle.test.tsx tests/renderer/components/SetupBanner.test.tsx`
 Expected: FAIL, cannot find the modules.
 
-- [ ] **Step 3: Implement the components**
+- [x] **Step 3: Implement the components**
 
 Create `src/renderer/src/components/EyeToggle.tsx`:
 ```tsx
@@ -1131,12 +1131,12 @@ export function SetupBanner({ message }: SetupBannerProps): JSX.Element | null {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/renderer/components/EyeToggle.test.tsx tests/renderer/components/SetupBanner.test.tsx`
 Expected: 4 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/components/EyeToggle.tsx src/renderer/src/components/SetupBanner.tsx tests/renderer/components/EyeToggle.test.tsx tests/renderer/components/SetupBanner.test.tsx
