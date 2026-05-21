@@ -147,7 +147,7 @@ git commit -m "chore: scaffold electron-vite project with vitest"
 
 Setup task, verified by `npm run typecheck`.
 
-- [ ] **Step 1: Create the shared types**
+- [x] **Step 1: Create the shared types**
 
 Create `src/shared/types.ts`:
 ```ts
@@ -178,7 +178,7 @@ export interface TranscriptSegment {
 }
 ```
 
-- [ ] **Step 2: Create the main-process constants**
+- [x] **Step 2: Create the main-process constants**
 
 Create `src/main/config/constants.ts`:
 ```ts
@@ -206,12 +206,12 @@ export const GLOBAL_HOTKEYS: Record<string, HotkeyAction> = {
 }
 ```
 
-- [ ] **Step 3: Verify types compile**
+- [x] **Step 3: Verify types compile**
 
 Run: `npm run typecheck`
 Expected: no type errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/shared/types.ts src/main/config/constants.ts
