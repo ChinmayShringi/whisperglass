@@ -344,7 +344,7 @@ git commit -m "feat: add overlay window factory"
 - Test: `tests/main/windows/overlay-state.test.ts`
 - Test: `tests/main/windows/overlay-controller.test.ts`
 
-- [ ] **Step 1: Write the failing test for the state reducers**
+- [x] **Step 1: Write the failing test for the state reducers**
 
 Create `tests/main/windows/overlay-state.test.ts`:
 ```ts
@@ -387,12 +387,12 @@ describe('overlay-state', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/overlay-state.test.ts`
 Expected: FAIL, cannot find module `overlay-state`.
 
-- [ ] **Step 3: Implement the state reducers**
+- [x] **Step 3: Implement the state reducers**
 
 Create `src/main/windows/overlay-state.ts`:
 ```ts
@@ -415,12 +415,12 @@ export function setVisible(state: OverlayState, visible: boolean): OverlayState 
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/overlay-state.test.ts`
 Expected: 4 passed.
 
-- [ ] **Step 5: Write the failing test for the controller**
+- [x] **Step 5: Write the failing test for the controller**
 
 Create `tests/main/windows/overlay-controller.test.ts`:
 ```ts
@@ -461,12 +461,12 @@ describe('applyOverlayState', () => {
 })
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/overlay-controller.test.ts`
 Expected: FAIL, cannot find module `overlay-controller`.
 
-- [ ] **Step 7: Implement the controller**
+- [x] **Step 7: Implement the controller**
 
 Create `src/main/windows/overlay-controller.ts`:
 ```ts
@@ -490,12 +490,12 @@ export function applyOverlayState(win: OverlayWindowLike, state: OverlayState): 
 }
 ```
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/overlay-controller.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/main/windows/overlay-state.ts src/main/windows/overlay-controller.ts tests/main/windows/overlay-state.test.ts tests/main/windows/overlay-controller.test.ts
