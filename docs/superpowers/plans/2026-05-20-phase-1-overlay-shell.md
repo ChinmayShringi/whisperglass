@@ -53,7 +53,7 @@ Created or modified across the tasks:
 
 This is a setup task, verified by a passing build and a passing smoke test rather than by TDD.
 
-- [ ] **Step 1: Scaffold electron-vite into a temp directory**
+- [x] **Step 1: Scaffold electron-vite into a temp directory**
 
 Run:
 ```bash
@@ -61,7 +61,7 @@ npm create @quick-start/electron@latest /tmp/customcluely-scaffold -- --template
 ```
 If the tool prompts, accept defaults (no extra add-ons). Expected result: `/tmp/customcluely-scaffold` contains `electron.vite.config.ts`, `package.json`, `tsconfig*.json`, `electron-builder.yml`, and `src/main`, `src/preload`, `src/renderer`.
 
-- [ ] **Step 2: Move the scaffold into the project, preserving git and the spec**
+- [x] **Step 2: Move the scaffold into the project, preserving git and the spec**
 
 Run:
 ```bash
@@ -72,7 +72,7 @@ rm -rf /tmp/customcluely-scaffold
 ```
 Expected: the project now has the scaffold files plus the pre-existing `docs/` and `.git/`.
 
-- [ ] **Step 3: Install dependencies and test tooling**
+- [x] **Step 3: Install dependencies and test tooling**
 
 Run:
 ```bash
@@ -81,7 +81,7 @@ npm install --save-dev vitest @vitejs/plugin-react @testing-library/react @testi
 ```
 Expected: install completes with no error.
 
-- [ ] **Step 4: Add the Vitest config and setup file**
+- [x] **Step 4: Add the Vitest config and setup file**
 
 Create `vitest.config.ts`:
 ```ts
@@ -109,7 +109,7 @@ Add to `package.json` scripts:
 "test:watch": "vitest"
 ```
 
-- [ ] **Step 5: Write the smoke test**
+- [x] **Step 5: Write the smoke test**
 
 Create `tests/smoke.test.ts`:
 ```ts
@@ -122,7 +122,7 @@ describe('test runner', () => {
 })
 ```
 
-- [ ] **Step 6: Verify the test runner and the build**
+- [x] **Step 6: Verify the test runner and the build**
 
 Run: `npm test`
 Expected: 1 passed.
@@ -130,7 +130,7 @@ Expected: 1 passed.
 Run: `npm run build`
 Expected: electron-vite build completes with no error.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
