@@ -1551,3 +1551,17 @@ git commit -m "docs: record Phase 1 verification results"
 - `npm test` passes with all Phase 1 tests green.
 - `npm run typecheck` and `npm run build` succeed.
 - The Phase 1 verification record confirms the overlay appears, hotkeys work, and `setContentProtection` hides the overlay from a screen recording when invisibility is ON.
+
+---
+
+## Task T1.13: Phase 1 review cleanup
+
+Addressed the final Phase 1 code review by applying five cleanup fixes:
+
+- Deleted the orphaned `src/main/hotkeys/hotkey-map.ts` and its test `tests/main/hotkeys/hotkey-map.test.ts` (dead code, removed 6 tests).
+- Fixed a misleading test title in `tests/main/windows/overlay-state.test.ts`.
+- Stripped the dead `electron`/`api` scaffold exposures from `src/preload/index.ts` and `src/preload/index.d.ts`.
+- Corrected `package.json` metadata: set `author` and `description`, removed the unused `homepage` field.
+- Moved the `ready-to-show` listener registration before page load in `src/main/index.ts` so the event is not missed.
+
+Suite is 74/74 passing; `npm run typecheck` and `npm run build` are clean.

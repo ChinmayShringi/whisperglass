@@ -6,7 +6,7 @@ import {
   createOverlayState,
   toggleInvisible,
   toggleClickThrough,
-  setVisible,
+  setVisible
 } from './windows/overlay-state'
 import { applyOverlayState } from './windows/overlay-controller'
 import { nextPosition } from './windows/position'
@@ -54,6 +54,7 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win))
 
   overlay = createOverlayWindow()
+  overlay.on('ready-to-show', () => pushState())
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     overlay.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -61,13 +62,12 @@ app.whenReady().then(() => {
   }
 
   state = setVisible(state, true)
-  overlay.on('ready-to-show', () => pushState())
 
   registerIpcHandlers(ipcMain, {
     onToggleInvisibility: () => {
       state = toggleInvisible(state)
       pushState()
-    },
+    }
   })
 
   registerGlobalHotkeys(globalShortcut, handleHotkey)

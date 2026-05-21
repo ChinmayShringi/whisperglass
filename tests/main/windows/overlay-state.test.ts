@@ -7,7 +7,7 @@ import {
 } from '../../../src/main/windows/overlay-state'
 
 describe('overlay-state', () => {
-  it('starts visible, not invisible, not click-through', () => {
+  it('starts hidden, not invisible, not click-through', () => {
     expect(createOverlayState()).toEqual({
       visible: false,
       invisible: false,
