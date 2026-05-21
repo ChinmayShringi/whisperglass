@@ -18,7 +18,7 @@ import { nextPosition } from './windows/position'
 import { registerGlobalHotkeys, unregisterGlobalHotkeys } from './hotkeys/global-hotkeys'
 import { registerIpcHandlers } from './ipc/ipc-handlers'
 import { MOVE_STEP_PX, CODEX } from './config/constants'
-import { IpcChannel, type HotkeyAction, type AskQuestionRequest } from '../shared/types'
+import { IpcChannel, type HotkeyAction } from '../shared/types'
 
 let overlay: BrowserWindow | null = null
 let state = createOverlayState()
@@ -88,7 +88,7 @@ app.whenReady().then(() => {
       state = toggleInvisible(state)
       pushState()
     },
-    onAskQuestion: (request: AskQuestionRequest) => {
+    onAskQuestion: (request) => {
       void codexService.handleAsk(request)
     }
   })
