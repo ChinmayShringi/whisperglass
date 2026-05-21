@@ -4,32 +4,38 @@ import { TranscriptPanel } from './components/TranscriptPanel'
 import { AnswerPanel } from './components/AnswerPanel'
 import { EyeToggle } from './components/EyeToggle'
 import { SetupBanner } from './components/SetupBanner'
-import type { OverlayState, TranscriptSegment } from '../../shared/types'
+import { useCodexAnswer } from './hooks/useCodexAnswer'
+import type { OverlayState, TranscriptSegment, CodexStatus } from '../../shared/types'
 import './styles/theme.css'
 
 export function App(): React.JSX.Element {
   const [invisible, setInvisible] = useState(false)
-  const [activeQuestion, setActiveQuestion] = useState('')
   const [segments] = useState<TranscriptSegment[]>([])
+  const [setupMessage, setSetupMessage] = useState<string | null>(null)
+  const { state, ask, retry } = useCodexAnswer()
 
   useEffect(() => {
-    const unsubscribe = window.customcluely.onOverlayState((state: OverlayState) => {
-      setInvisible(state.invisible)
+    const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
+      setInvisible(overlay.invisible)
     })
-    return unsubscribe
+    const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
+      setSetupMessage(status.available && status.authenticated ? null : status.detail)
+    })
+    return () => {
+      offState()
+      offStatus()
+    }
   }, [])
 
   return (
     <div className="app">
-      <SetupBanner message={null} />
+      <SetupBanner message={setupMessage} />
       <div className="app__bar">
-        <CommandBar onSubmit={setActiveQuestion} />
+        <CommandBar onSubmit={ask} disabled={state.status === 'streaming'} />
         <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
       </div>
-      {activeQuestion.length > 0 && (
-        <p className="app__active-question">{activeQuestion}</p>
-      )}
-      <AnswerPanel answer="" />
+      {state.question.length > 0 && <p className="app__active-question">{state.question}</p>}
+      <AnswerPanel answer={state.text} status={state.status} error={state.error} onRetry={retry} />
       <TranscriptPanel segments={segments} />
     </div>
   )
