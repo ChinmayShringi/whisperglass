@@ -43,4 +43,35 @@ describe('createOverlayApi', () => {
     createOverlayApi(ipcRenderer).toggleInvisibility()
     expect(ipcRenderer.send).toHaveBeenCalledOnce()
   })
+
+  it('askQuestion sends the request on the AskQuestion channel', () => {
+    const send = vi.fn()
+    const api = createOverlayApi({ send, on: vi.fn(), removeListener: vi.fn() })
+    const request = { requestId: 'r-1', question: 'hello' }
+    api.askQuestion(request)
+    expect(send).toHaveBeenCalledWith(IpcChannel.AskQuestion, request)
+  })
+
+  it('onAnswerChunk delivers the payload from the AnswerChunk channel', () => {
+    const listeners: Record<string, (e: unknown, p: unknown) => void> = {}
+    const api = createOverlayApi({
+      send: vi.fn(),
+      on: vi.fn((c: string, l: (e: unknown, p: unknown) => void) => {
+        listeners[c] = l
+      }),
+      removeListener: vi.fn()
+    })
+    const received: unknown[] = []
+    api.onAnswerChunk((chunk) => received.push(chunk))
+    listeners[IpcChannel.AnswerChunk]({}, { requestId: 'r-1', delta: 'hi' })
+    expect(received).toEqual([{ requestId: 'r-1', delta: 'hi' }])
+  })
+
+  it('onCodexStatus subscribes to the CodexStatus channel and unsubscribes', () => {
+    const removeListener = vi.fn()
+    const api = createOverlayApi({ send: vi.fn(), on: vi.fn(), removeListener })
+    const unsubscribe = api.onCodexStatus(() => {})
+    unsubscribe()
+    expect(removeListener).toHaveBeenCalledWith(IpcChannel.CodexStatus, expect.any(Function))
+  })
 })
