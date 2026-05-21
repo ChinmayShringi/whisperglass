@@ -922,7 +922,7 @@ git commit -m "feat: add CommandBar component"
 - Test: `tests/renderer/components/TranscriptPanel.test.tsx`
 - Test: `tests/renderer/components/AnswerPanel.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/renderer/components/TranscriptPanel.test.tsx`:
 ```tsx
@@ -969,12 +969,12 @@ describe('AnswerPanel', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/renderer/components/TranscriptPanel.test.tsx tests/renderer/components/AnswerPanel.test.tsx`
 Expected: FAIL, cannot find the modules.
 
-- [ ] **Step 3: Implement the panels**
+- [x] **Step 3: Implement the panels**
 
 Create `src/renderer/src/components/TranscriptPanel.tsx`:
 ```tsx
@@ -1021,12 +1021,12 @@ export function AnswerPanel({ answer }: AnswerPanelProps): JSX.Element {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/renderer/components/TranscriptPanel.test.tsx tests/renderer/components/AnswerPanel.test.tsx`
 Expected: 4 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/components/TranscriptPanel.tsx src/renderer/src/components/AnswerPanel.tsx tests/renderer/components/TranscriptPanel.test.tsx tests/renderer/components/AnswerPanel.test.tsx
