@@ -640,7 +640,7 @@ git commit -m "feat: add global hotkey registry"
 - Test: `tests/preload/api.test.ts`
 - Test: `tests/main/ipc/ipc-handlers.test.ts`
 
-- [ ] **Step 1: Write the failing test for the preload API**
+- [x] **Step 1: Write the failing test for the preload API**
 
 Create `tests/preload/api.test.ts`:
 ```ts
@@ -672,12 +672,12 @@ describe('createOverlayApi', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/preload/api.test.ts`
 Expected: FAIL, cannot find module `api`.
 
-- [ ] **Step 3: Implement the preload API factory**
+- [x] **Step 3: Implement the preload API factory**
 
 Create `src/preload/api.ts`:
 ```ts
@@ -707,12 +707,12 @@ export function createOverlayApi(ipcRenderer: IpcRendererLike): OverlayApi {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/preload/api.test.ts`
 Expected: 2 passed.
 
-- [ ] **Step 5: Wire the preload entry point**
+- [x] **Step 5: Wire the preload entry point**
 
 Replace the contents of `src/preload/index.ts`:
 ```ts
@@ -740,7 +740,7 @@ declare global {
 }
 ```
 
-- [ ] **Step 6: Write the failing test for the main IPC handlers**
+- [x] **Step 6: Write the failing test for the main IPC handlers**
 
 Create `tests/main/ipc/ipc-handlers.test.ts`:
 ```ts
@@ -764,12 +764,12 @@ describe('registerIpcHandlers', () => {
 })
 ```
 
-- [ ] **Step 7: Run the test to verify it fails**
+- [x] **Step 7: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/ipc/ipc-handlers.test.ts`
 Expected: FAIL, cannot find module `ipc-handlers`.
 
-- [ ] **Step 8: Implement the main IPC handlers**
+- [x] **Step 8: Implement the main IPC handlers**
 
 Create `src/main/ipc/ipc-handlers.ts`:
 ```ts
@@ -788,12 +788,12 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, deps: IpcHandlerDeps):
 }
 ```
 
-- [ ] **Step 9: Run the test to verify it passes**
+- [x] **Step 9: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/ipc/ipc-handlers.test.ts`
 Expected: 1 passed.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/preload/ src/main/ipc/ tests/preload/ tests/main/ipc/
