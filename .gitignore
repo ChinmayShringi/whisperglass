@@ -10,6 +10,9 @@ dist/
 # Caches
 .eslintcache
 
+# Parallel-execution git worktrees
+.worktrees/
+
 # Swift sidecar build artifacts
 sidecar/.build/
 sidecar/build/
