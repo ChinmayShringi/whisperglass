@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"t-1"}
+{"type":"turn.started"}
+{"type":"item.updated","item":{"id":"i-1","item_type":"agent_message","text":"A closure is"}}
+{"type":"item.completed","item":{"id":"i-1","item_type":"agent_message","text":"A closure is a function bundled with its surrounding state."}}
+{"type":"turn.completed","usage":{"input_tokens":40,"output_tokens":12}}
