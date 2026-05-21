@@ -512,7 +512,7 @@ git commit -m "feat: add overlay state reducers and content-protection controlle
 - Test: `tests/main/hotkeys/hotkey-map.test.ts`
 - Test: `tests/main/hotkeys/global-hotkeys.test.ts`
 
-- [ ] **Step 1: Write the failing test for the resolver**
+- [x] **Step 1: Write the failing test for the resolver**
 
 Create `tests/main/hotkeys/hotkey-map.test.ts`:
 ```ts
@@ -530,12 +530,12 @@ describe('resolveHotkeyAction', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/hotkeys/hotkey-map.test.ts`
 Expected: FAIL, cannot find module `hotkey-map`.
 
-- [ ] **Step 3: Implement the resolver**
+- [x] **Step 3: Implement the resolver**
 
 Create `src/main/hotkeys/hotkey-map.ts`:
 ```ts
@@ -547,12 +547,12 @@ export function resolveHotkeyAction(accelerator: string): HotkeyAction | undefin
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/hotkeys/hotkey-map.test.ts`
 Expected: 2 passed.
 
-- [ ] **Step 5: Write the failing test for the registrar**
+- [x] **Step 5: Write the failing test for the registrar**
 
 Create `tests/main/hotkeys/global-hotkeys.test.ts`:
 ```ts
@@ -585,12 +585,12 @@ describe('registerGlobalHotkeys', () => {
 })
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/hotkeys/global-hotkeys.test.ts`
 Expected: FAIL, cannot find module `global-hotkeys`.
 
-- [ ] **Step 7: Implement the registrar**
+- [x] **Step 7: Implement the registrar**
 
 Create `src/main/hotkeys/global-hotkeys.ts`:
 ```ts
@@ -616,12 +616,12 @@ export function unregisterGlobalHotkeys(globalShortcut: GlobalShortcutLike): voi
 }
 ```
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/hotkeys/global-hotkeys.test.ts`
 Expected: 2 passed.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/main/hotkeys/ tests/main/hotkeys/
