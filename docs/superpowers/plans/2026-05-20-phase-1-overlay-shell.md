@@ -808,7 +808,7 @@ git commit -m "feat: add IPC bridge between main and renderer"
 - Create: `src/renderer/src/components/CommandBar.tsx`
 - Test: `tests/renderer/components/CommandBar.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/renderer/components/CommandBar.test.tsx`:
 ```tsx
@@ -844,12 +844,12 @@ describe('CommandBar', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/renderer/components/CommandBar.test.tsx`
 Expected: FAIL, cannot find module `CommandBar`.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 Create `src/renderer/src/components/CommandBar.tsx`:
 ```tsx
@@ -900,12 +900,12 @@ export function CommandBar({ onSubmit, disabled = false }: CommandBarProps): JSX
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/renderer/components/CommandBar.test.tsx`
 Expected: 3 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/components/CommandBar.tsx tests/renderer/components/CommandBar.test.tsx
