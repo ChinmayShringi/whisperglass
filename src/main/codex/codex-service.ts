@@ -120,6 +120,11 @@ export function createCodexService(deps: CodexServiceDeps): CodexService {
     } finally {
       inFlight = false
       await rm(outputFile, { force: true }).catch(() => {})
+      // The screenshot file lives exactly as long as the answer file: it is
+      // attached while the query runs and removed once the query finishes.
+      if (imagePath) {
+        await rm(imagePath, { force: true }).catch(() => {})
+      }
     }
   }
 

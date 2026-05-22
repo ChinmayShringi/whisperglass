@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { join } from 'node:path'
 import { mkdtempSync } from 'node:fs'
+import { access, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { IpcChannel } from '../../../src/shared/types'
 
@@ -175,6 +177,29 @@ describe('createCodexService.handleContextAsk', () => {
     expect(passedArgs).toEqual(
       expect.arrayContaining(['-i', '/tmp/scratch/screenshots/shot-xyz.png'])
     )
+  })
+
+  it('deletes the screenshot file after the query completes', async () => {
+    runCodexQuery.mockResolvedValueOnce({ ok: true, text: 'ok', error: '', diagnostic: '' })
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: () => {}
+    })
+    // A real temporary PNG that the runner's finally block must remove.
+    const imagePath = join(tmpdir(), `codex-shot-${randomUUID()}.png`)
+    await writeFile(imagePath, Buffer.from('png-bytes'))
+    await service.handleContextAsk(
+      {
+        requestId: 'ctx-shot-cleanup',
+        question: 'what is on screen',
+        segments: [],
+        screenshot: true,
+        extraArgs: []
+      },
+      imagePath
+    )
+    // The file existed during the query and is gone once it finishes.
+    await expect(access(imagePath)).rejects.toThrow()
   })
 
   it('does not attach an image when screenshot is true but no path is given', async () => {

@@ -42,7 +42,7 @@ describe('createScreenshotStore', () => {
     expect(store.pendingPath()).not.toBe(firstPath)
   })
 
-  it('consuming the pending screenshot returns its path and clears and deletes it', async () => {
+  it('consuming the pending screenshot returns its path and clears it without deleting the file', async () => {
     const deleteFile = vi.fn(async () => {})
     const store = createScreenshotStore({
       scratchRoot: '/scratch',
@@ -51,20 +51,22 @@ describe('createScreenshotStore', () => {
     })
     await store.save({ format: 'png', dataBase64: 'AAAA' })
     const path = store.pendingPath()
-    const consumed = await store.consume()
+    const consumed = store.consume()
     expect(consumed).toBe(path)
     expect(store.pendingPath()).toBeUndefined()
-    expect(deleteFile).toHaveBeenCalledWith(path)
+    // The Codex runner owns deleting the file after the query, so consume
+    // must leave it on disk.
+    expect(deleteFile).not.toHaveBeenCalled()
   })
 
-  it('consuming when nothing is pending returns undefined and does not delete', async () => {
+  it('consuming when nothing is pending returns undefined and does not delete', () => {
     const deleteFile = vi.fn(async () => {})
     const store = createScreenshotStore({
       scratchRoot: '/scratch',
       writeFile: vi.fn(async () => {}),
       deleteFile
     })
-    expect(await store.consume()).toBeUndefined()
+    expect(store.consume()).toBeUndefined()
     expect(deleteFile).not.toHaveBeenCalled()
   })
 })

@@ -206,9 +206,8 @@ app.whenReady().then(() => {
     // A transcript-and-screenshot-aware query. The pending screenshot (if any)
     // is consumed here so it is attached to exactly one query.
     onAskContextQuestion: (request) => {
-      void screenshotStore.consume().then((screenshotPath) => {
-        void codexService.handleContextAsk(request, screenshotPath)
-      })
+      const screenshotPath = screenshotStore.consume()
+      void codexService.handleContextAsk(request, screenshotPath)
     },
     // Starting a listening session resets the rolling audio state and starts
     // the Swift sidecar capturing system audio and the microphone.

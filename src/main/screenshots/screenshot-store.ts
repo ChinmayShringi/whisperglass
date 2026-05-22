@@ -17,18 +17,20 @@ export interface ScreenshotStore {
   /** The path of the pending screenshot, or undefined when none is pending. */
   pendingPath: () => string | undefined
   /**
-   * Returns the pending screenshot path and clears it, deleting the file.
-   * Returns undefined when nothing is pending. Called after a query has
-   * attached the screenshot so it is used exactly once.
+   * Returns the pending screenshot path and clears the pending slot. Returns
+   * undefined when nothing is pending. The file is left on disk so the Codex
+   * runner can attach it with `-i`; the runner deletes it after the query
+   * completes. Performs no I/O, so it is synchronous.
    */
-  consume: () => Promise<string | undefined>
+  consume: () => string | undefined
 }
 
 // Holds at most one pending screenshot. Sidecar screenshots arrive as base64
 // PNGs; this store decodes them to real files in the Codex scratch dir so the
 // Codex runner can attach them with `-i`. A new screenshot replaces the old
-// one (its file is deleted), and consuming the pending screenshot deletes its
-// file too, so screenshots never accumulate on disk.
+// one (its file is deleted). Consuming the pending screenshot only clears the
+// slot and returns the path: the Codex runner deletes the file after the
+// query, so the file survives long enough for codex to read it.
 export function createScreenshotStore(deps: ScreenshotStoreDeps): ScreenshotStore {
   const screenshotsDir = join(deps.scratchRoot, 'screenshots')
   let pending: string | undefined
@@ -52,11 +54,10 @@ export function createScreenshotStore(deps: ScreenshotStoreDeps): ScreenshotStor
     return pending
   }
 
-  async function consume(): Promise<string | undefined> {
+  function consume(): string | undefined {
     const path = pending
     if (!path) return undefined
     pending = undefined
-    await deps.deleteFile(path).catch(() => {})
     return path
   }
 
