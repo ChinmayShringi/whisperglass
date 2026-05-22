@@ -1,0 +1,50 @@
+name: CI
+
+# Whisperglass is a macOS-only Electron app with a Swift capture sidecar, so
+# every job runs on a macOS runner. The Vitest suite mocks the native binaries
+# (whisper.cpp and the sidecar), so CI does not need to build whisper.cpp or
+# the sidecar binary to run the Node tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node:
+    name: Node (typecheck, lint, test, build)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  swift:
+    name: Swift sidecar tests
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run sidecar tests
+        run: swift test --package-path sidecar
