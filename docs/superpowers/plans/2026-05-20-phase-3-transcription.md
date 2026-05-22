@@ -1224,6 +1224,7 @@ git commit -m "feat: add immutable rolling transcript buffer"
 - Create: `src/main/transcription/whisper-runner.ts`
 - Create: `tests/fixtures/whisper/mock-whisper-ok.mjs`
 - Create: `tests/fixtures/whisper/mock-whisper-fail.mjs`
+- Create: `tests/fixtures/whisper/mock-whisper-hang.mjs`
 - Test: `tests/main/transcription/whisper-runner.test.ts`
 
 - [ ] **Step 1: Create the mock `whisper-cli` (success) fixture**
@@ -1261,6 +1262,15 @@ Create `tests/fixtures/whisper/mock-whisper-fail.mjs`:
 // errors.
 process.stderr.write('whisper: failed to load model /Users/secret/leaked/model.bin\n')
 process.exit(1)
+```
+
+- [ ] **Step 2b: Create the mock `whisper-cli` (hang) fixture**
+
+Create `tests/fixtures/whisper/mock-whisper-hang.mjs`:
+
+```javascript
+// Mock `whisper-cli` that never exits, to exercise the runner timeout.
+setInterval(() => {}, 1000)
 ```
 
 - [ ] **Step 3: Write the failing test**
@@ -1315,7 +1325,7 @@ describe('runWhisper', () => {
     const wavPath = scratchWav()
     const result = await runWhisper({
       command: 'node',
-      prefixArgs: ['-e', 'setTimeout(() => {}, 60000)'],
+      prefixArgs: [join(FIXTURES, 'mock-whisper-hang.mjs')],
       modelPath: '/fake/model.bin',
       wavPath,
       timeoutMs: 300
@@ -1484,7 +1494,7 @@ Expected: PASS, 4 cases green.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/main/transcription/whisper-runner.ts tests/main/transcription/whisper-runner.test.ts tests/fixtures/whisper/mock-whisper-ok.mjs tests/fixtures/whisper/mock-whisper-fail.mjs
+git add src/main/transcription/whisper-runner.ts tests/main/transcription/whisper-runner.test.ts tests/fixtures/whisper/mock-whisper-ok.mjs tests/fixtures/whisper/mock-whisper-fail.mjs tests/fixtures/whisper/mock-whisper-hang.mjs
 git commit -m "feat: add whisper-cli subprocess runner"
 ```
 
