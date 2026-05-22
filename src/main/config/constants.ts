@@ -31,3 +31,27 @@ export const CODEX = {
   scratchDirName: '.codex-scratch',
   reasoningEffort: 'low'
 } as const
+
+export const WHISPER = {
+  // Bundled whisper.cpp v1.8.4 binary, built from source by
+  // scripts/setup-whisper.sh and committed under resources/whisper/.
+  binaryName: 'whisper-cli',
+  // Default English-only model. Downloaded on first run, never committed.
+  // Accuracy upgrade: ggml-small.en.bin (466 MiB) - not used in Phase 3.
+  modelFileName: 'ggml-base.en.bin',
+  modelUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin',
+  // Exact byte size of ggml-base.en.bin, used to detect a complete download.
+  modelByteSize: 147_964_211,
+  // whisper.cpp requires 16 kHz mono 16-bit PCM.
+  sampleRate: 16_000,
+  // Rolling-window transcription: 8 s windows with 2 s overlap, so a new
+  // window starts every 6 s of fresh audio. 8 s gives whisper enough phrase
+  // context; 2 s of overlap spans word boundaries for de-duplication.
+  windowSeconds: 8,
+  overlapSeconds: 2,
+  // Renderer ships PCM in 1-second frames.
+  frameSeconds: 1,
+  // Per-window whisper-cli timeout.
+  timeoutMs: 30_000,
+  scratchDirName: '.whisper-scratch'
+} as const

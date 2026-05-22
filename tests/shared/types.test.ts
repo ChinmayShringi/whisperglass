@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { IpcChannel } from '../../src/shared/types'
+import { WHISPER } from '../../src/main/config/constants'
 
 describe('IpcChannel', () => {
   it('keeps the Phase 1 overlay channels', () => {
@@ -18,5 +19,30 @@ describe('IpcChannel', () => {
   it('uses a unique string per channel', () => {
     const values = Object.values(IpcChannel)
     expect(new Set(values).size).toBe(values.length)
+  })
+})
+
+describe('Phase 3 IpcChannel entries', () => {
+  it('defines the transcription channels', () => {
+    expect(IpcChannel.StartTranscription).toBe('transcription:start')
+    expect(IpcChannel.StopTranscription).toBe('transcription:stop')
+    expect(IpcChannel.AudioFrame).toBe('transcription:audio-frame')
+    expect(IpcChannel.TranscriptUpdate).toBe('transcription:update')
+    expect(IpcChannel.TranscriptionStatus).toBe('transcription:status')
+  })
+})
+
+describe('WHISPER constants', () => {
+  it('pins the model file, sample rate, and window timing', () => {
+    expect(WHISPER.modelFileName).toBe('ggml-base.en.bin')
+    expect(WHISPER.binaryName).toBe('whisper-cli')
+    expect(WHISPER.sampleRate).toBe(16000)
+    expect(WHISPER.windowSeconds).toBe(8)
+    expect(WHISPER.overlapSeconds).toBe(2)
+    expect(WHISPER.frameSeconds).toBe(1)
+    expect(WHISPER.modelByteSize).toBe(147964211)
+    expect(WHISPER.modelUrl).toBe(
+      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin'
+    )
   })
 })
