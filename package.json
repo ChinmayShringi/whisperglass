@@ -60,7 +60,7 @@
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.0.2",
     "electron": "^42.2.0",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
