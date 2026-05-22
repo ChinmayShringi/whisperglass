@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AnswerChunk, AnswerResult, AnswerError } from '../../../shared/types'
+import type {
+  AnswerChunk,
+  AnswerResult,
+  AnswerError,
+  TranscriptSegment
+} from '../../../shared/types'
 
 export type CodexAnswerStatus = 'idle' | 'streaming' | 'done' | 'error'
 
@@ -10,9 +15,24 @@ export interface CodexAnswerState {
   error: string
 }
 
+/** Options for a transcript-and-screenshot-aware context query. */
+export interface AskContextOptions {
+  /** Attach the pending screenshot to the query. */
+  screenshot: boolean
+  /** Extra codex flags, for example `['--search']` for Fact check. */
+  extraArgs: string[]
+}
+
 export interface UseCodexAnswer {
   state: CodexAnswerState
+  /** Sends a plain question with no transcript or screenshot context. */
   ask: (question: string) => void
+  /** Sends a question grounded in the transcript, optionally with a shot. */
+  askContext: (
+    question: string,
+    segments: TranscriptSegment[],
+    options: AskContextOptions
+  ) => void
   retry: () => void
 }
 
@@ -53,9 +73,28 @@ export function useCodexAnswer(): UseCodexAnswer {
     window.customcluely.askQuestion({ requestId, question: trimmed })
   }, [])
 
+  const askContext = useCallback(
+    (question: string, segments: TranscriptSegment[], options: AskContextOptions) => {
+      const trimmed = question.trim()
+      if (trimmed.length === 0) return
+      const requestId = crypto.randomUUID()
+      requestIdRef.current = requestId
+      lastQuestionRef.current = trimmed
+      setState({ status: 'streaming', question: trimmed, text: '', error: '' })
+      window.customcluely.askContextQuestion({
+        requestId,
+        question: trimmed,
+        segments,
+        screenshot: options.screenshot,
+        extraArgs: options.extraArgs
+      })
+    },
+    []
+  )
+
   const retry = useCallback(() => {
     if (lastQuestionRef.current.length > 0) ask(lastQuestionRef.current)
   }, [ask])
 
-  return { state, ask, retry }
+  return { state, ask, askContext, retry }
 }

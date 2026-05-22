@@ -25,6 +25,8 @@ import { downloadModel, type HttpResponse } from './transcription/model-download
 import { createTranscriptionService } from './transcription/transcription-service'
 import { runWhisper } from './transcription/whisper-runner'
 import { createSidecarSupervisor } from './sidecar/sidecar-supervisor'
+import { createScreenshotStore } from './screenshots/screenshot-store'
+import { writeFile as fsWriteFile, mkdir as fsMkdir, rm as fsRm } from 'node:fs/promises'
 import { MOVE_STEP_PX, CODEX, WHISPER, SIDECAR } from './config/constants'
 import { IpcChannel, type HotkeyAction } from '../shared/types'
 
@@ -163,22 +165,34 @@ app.whenReady().then(() => {
     onAudio: (frame) => {
       void transcriptionService.handleAudioFrame({ pcmBase64: frame.pcm }, frame.source)
     },
-    onScreenshot: (screenshot) => emitToOverlay(IpcChannel.Screenshot, screenshot),
+    onScreenshot: (screenshot) => {
+      void screenshotStore.save(screenshot)
+      emitToOverlay(IpcChannel.Screenshot, screenshot)
+    },
     onStatus: (status) => emitToOverlay(IpcChannel.SidecarStatus, status),
     onPermission: (permission) => {
       // A denied permission is surfaced through the sidecar status channel so
       // the renderer can show a banner that deep-links to System Settings.
       if (!permission.granted) {
-        const pane =
-          permission.kind === 'screen'
-            ? 'Screen Recording'
-            : 'Microphone'
+        const pane = permission.kind === 'screen' ? 'Screen Recording' : 'Microphone'
         emitToOverlay(IpcChannel.SidecarStatus, {
           state: 'error',
           detail: `${pane} permission is denied. Grant it to Customcluely in System Settings > Privacy & Security > ${pane}.`
         })
       }
     }
+  })
+
+  // Holds the single pending screenshot for the next Codex query. Screenshots
+  // are written as PNG files into the Codex scratch dir so the runner can
+  // attach them with `-i`; they are deleted once a query consumes them.
+  const screenshotStore = createScreenshotStore({
+    scratchRoot,
+    writeFile: async (path, data) => {
+      await fsMkdir(join(scratchRoot, 'screenshots'), { recursive: true })
+      await fsWriteFile(path, data)
+    },
+    deleteFile: (path) => fsRm(path, { force: true })
   })
 
   registerIpcHandlers(ipcMain, {
@@ -188,6 +202,12 @@ app.whenReady().then(() => {
     },
     onAskQuestion: (request) => {
       void codexService.handleAsk(request)
+    },
+    // A transcript-and-screenshot-aware query. The pending screenshot (if any)
+    // is consumed here so it is attached to exactly one query.
+    onAskContextQuestion: (request) => {
+      const screenshotPath = screenshotStore.consume()
+      void codexService.handleContextAsk(request, screenshotPath)
     },
     // Starting a listening session resets the rolling audio state and starts
     // the Swift sidecar capturing system audio and the microphone.
@@ -199,6 +219,11 @@ app.whenReady().then(() => {
     // restart is fast; it is fully shut down only on app quit.
     onStopTranscription: () => {
       transcriptionService.reset()
+    },
+    // The renderer asked for a screenshot: forward the request to the sidecar.
+    // The sidecar's screenshot event lands in screenshotStore via onScreenshot.
+    onRequestScreenshot: () => {
+      sidecar.requestScreenshot()
     }
   })
 

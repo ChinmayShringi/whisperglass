@@ -2,6 +2,7 @@ export const IpcChannel = {
   ToggleInvisibility: 'overlay:toggle-invisibility',
   OverlayState: 'overlay:state',
   AskQuestion: 'codex:ask',
+  AskContextQuestion: 'codex:ask-context',
   AnswerChunk: 'codex:answer-chunk',
   AnswerDone: 'codex:answer-done',
   AnswerError: 'codex:answer-error',
@@ -11,7 +12,8 @@ export const IpcChannel = {
   TranscriptUpdate: 'transcription:update',
   TranscriptionStatus: 'transcription:status',
   SidecarStatus: 'sidecar:status',
-  Screenshot: 'sidecar:screenshot'
+  Screenshot: 'sidecar:screenshot',
+  RequestScreenshot: 'sidecar:request-screenshot'
 } as const
 
 export type HotkeyAction =
@@ -86,4 +88,22 @@ export interface SidecarStatusPayload {
 export interface ScreenshotPayload {
   format: 'png'
   dataBase64: string
+}
+
+/** The id of one Default Action preset. Matches default-actions.ts. */
+export type DefaultActionId = 'say-next' | 'follow-up' | 'fact-check' | 'recap' | 'coding-help'
+
+/**
+ * A transcript-and-screenshot-aware Codex query sent from the renderer. The
+ * renderer passes the live transcript segments so the main process can build
+ * a bounded prompt context; `screenshot` is true when the pending screenshot
+ * should be attached; `extraArgs` carries Default-Action codex-arg modifiers
+ * such as `--search`.
+ */
+export interface ContextAskRequest {
+  requestId: string
+  question: string
+  segments: TranscriptSegment[]
+  screenshot: boolean
+  extraArgs: string[]
 }

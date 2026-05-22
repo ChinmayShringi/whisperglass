@@ -6,8 +6,10 @@ function makeDeps() {
   return {
     onToggleInvisibility: vi.fn(),
     onAskQuestion: vi.fn(),
+    onAskContextQuestion: vi.fn(),
     onStartTranscription: vi.fn(),
-    onStopTranscription: vi.fn()
+    onStopTranscription: vi.fn(),
+    onRequestScreenshot: vi.fn()
   }
 }
 
@@ -42,6 +44,15 @@ describe('registerIpcHandlers', () => {
     expect(deps.onAskQuestion).toHaveBeenCalledWith(request)
   })
 
+  it('forwards the request payload when the AskContextQuestion channel receives a message', () => {
+    const { ipcMain, handlers } = makeIpc()
+    const deps = makeDeps()
+    registerIpcHandlers(ipcMain, deps)
+    const request = { requestId: 'r-2', question: 'recap', segments: [], screenshot: false, extraArgs: [] }
+    handlers[IpcChannel.AskContextQuestion]({}, request)
+    expect(deps.onAskContextQuestion).toHaveBeenCalledWith(request)
+  })
+
   it('calls onStartTranscription when its channel receives a message', () => {
     const { ipcMain, handlers } = makeIpc()
     const deps = makeDeps()
@@ -58,15 +69,23 @@ describe('registerIpcHandlers', () => {
     expect(deps.onStopTranscription).toHaveBeenCalledOnce()
   })
 
+  it('calls onRequestScreenshot when its channel receives a message', () => {
+    const { ipcMain, handlers } = makeIpc()
+    const deps = makeDeps()
+    registerIpcHandlers(ipcMain, deps)
+    handlers[IpcChannel.RequestScreenshot]()
+    expect(deps.onRequestScreenshot).toHaveBeenCalledOnce()
+  })
+
   it('does not register the removed AudioFrame channel', () => {
     const { ipcMain, handlers } = makeIpc()
     registerIpcHandlers(ipcMain, makeDeps())
     expect(handlers['transcription:audio-frame']).toBeUndefined()
   })
 
-  it('registers exactly four channel handlers', () => {
+  it('registers exactly six channel handlers', () => {
     const { ipcMain } = makeIpc()
     registerIpcHandlers(ipcMain, makeDeps())
-    expect(ipcMain.on).toHaveBeenCalledTimes(4)
+    expect(ipcMain.on).toHaveBeenCalledTimes(6)
   })
 })

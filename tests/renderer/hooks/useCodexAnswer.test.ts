@@ -32,6 +32,8 @@ beforeEach(() => {
       return () => {}
     }),
     onCodexStatus: vi.fn(() => () => {}),
+    askContextQuestion: vi.fn(),
+    requestScreenshot: vi.fn()
   }
 })
 
@@ -89,5 +91,37 @@ describe('useCodexAnswer', () => {
     act(() => result.current.retry())
     expect(lastRequest?.question).toBe('first question')
     expect(result.current.state.status).toBe('streaming')
+  })
+})
+
+describe('useCodexAnswer.askContext', () => {
+  it('sends a context-ask request carrying the segments, screenshot flag, and extra args', () => {
+    const { result } = renderHook(() => useCodexAnswer())
+    act(() =>
+      result.current.askContext('recap please', [{ id: 's1', speaker: 'them', text: 'hello' }], {
+        screenshot: true,
+        extraArgs: ['--search']
+      })
+    )
+    expect(window.customcluely.askContextQuestion).toHaveBeenCalledOnce()
+    const sent = (window.customcluely.askContextQuestion as ReturnType<typeof vi.fn>).mock
+      .calls[0][0]
+    expect(sent.question).toBe('recap please')
+    expect(sent.segments).toHaveLength(1)
+    expect(sent.screenshot).toBe(true)
+    expect(sent.extraArgs).toEqual(['--search'])
+  })
+
+  it('shows the question as the active question and enters the streaming state', () => {
+    const { result } = renderHook(() => useCodexAnswer())
+    act(() => result.current.askContext('what next', [], { screenshot: false, extraArgs: [] }))
+    expect(result.current.state.question).toBe('what next')
+    expect(result.current.state.status).toBe('streaming')
+  })
+
+  it('ignores an empty context question', () => {
+    const { result } = renderHook(() => useCodexAnswer())
+    act(() => result.current.askContext('   ', [], { screenshot: false, extraArgs: [] }))
+    expect(window.customcluely.askContextQuestion).not.toHaveBeenCalled()
   })
 })

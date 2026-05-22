@@ -143,3 +143,35 @@ describe('createOverlayApi transcription and sidecar methods', () => {
     expect(received).toEqual([{ format: 'png', dataBase64: 'aW1n' }])
   })
 })
+
+describe('OverlayApi Phase 5 surface', () => {
+  it('askContextQuestion sends the request on the context-ask channel', () => {
+    const sent: Array<{ channel: string; args: unknown[] }> = []
+    const ipc = {
+      send: (channel: string, ...args: unknown[]) => sent.push({ channel, args }),
+      on: () => {}
+    }
+    const api = createOverlayApi(ipc)
+    const request = {
+      requestId: 'r-1',
+      question: 'recap',
+      segments: [],
+      screenshot: false,
+      extraArgs: []
+    }
+    api.askContextQuestion(request)
+    expect(sent[0].channel).toBe('codex:ask-context')
+    expect(sent[0].args[0]).toEqual(request)
+  })
+
+  it('requestScreenshot sends on the screenshot-request channel', () => {
+    const sent: Array<{ channel: string }> = []
+    const ipc = {
+      send: (channel: string) => sent.push({ channel }),
+      on: () => {}
+    }
+    const api = createOverlayApi(ipc)
+    api.requestScreenshot()
+    expect(sent[0].channel).toBe('sidecar:request-screenshot')
+  })
+})

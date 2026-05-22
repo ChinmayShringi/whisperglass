@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { IpcChannel } from '../../src/shared/types'
-import { WHISPER, SIDECAR } from '../../src/main/config/constants'
+import { WHISPER, SIDECAR, CONTEXT, INSIGHTS } from '../../src/main/config/constants'
 
 describe('IpcChannel', () => {
   it('keeps the Phase 1 overlay channels', () => {
@@ -64,5 +64,30 @@ describe('SIDECAR constants', () => {
     expect(SIDECAR.stableUptimeMs).toBe(10_000)
     expect(SIDECAR.maxBackoffMs).toBe(8_000)
     expect(SIDECAR.baseBackoffMs).toBe(1_000)
+  })
+})
+
+describe('Phase 5 IpcChannel entries', () => {
+  it('defines the context-ask and screenshot-request channels', () => {
+    expect(IpcChannel.AskContextQuestion).toBe('codex:ask-context')
+    expect(IpcChannel.RequestScreenshot).toBe('sidecar:request-screenshot')
+  })
+})
+
+describe('CONTEXT constants', () => {
+  it('pins the verbatim recent-segment count and the older-segment char budget', () => {
+    expect(CONTEXT.recentSegments).toBe(12)
+    expect(CONTEXT.olderCharBudget).toBe(1200)
+    expect(CONTEXT.olderMarker).toBe('[earlier in the meeting]')
+  })
+})
+
+describe('INSIGHTS constants', () => {
+  it('pins the max surfaced insight count and a non-empty keyword list', () => {
+    expect(INSIGHTS.maxSurfaced).toBe(5)
+    expect(Array.isArray(INSIGHTS.keywords)).toBe(true)
+    expect(INSIGHTS.keywords).toContain('deadline')
+    expect(INSIGHTS.keywords).toContain('action item')
+    expect(INSIGHTS.keywords.length).toBeGreaterThanOrEqual(8)
   })
 })
