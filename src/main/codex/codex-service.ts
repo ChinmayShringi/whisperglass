@@ -29,7 +29,20 @@ function requestIdOf(request: unknown): string {
 }
 
 export function createCodexService(deps: CodexServiceDeps): CodexService {
+  // Single-flight guard: only one codex subprocess may run at a time. The
+  // check-and-set below runs with no await in between, so it is atomic on the
+  // single JS thread.
+  let inFlight = false
+
   async function handleAsk(request: unknown): Promise<void> {
+    if (inFlight) {
+      deps.emit(IpcChannel.AnswerError, {
+        requestId: requestIdOf(request),
+        message: 'A question is already being processed. Wait for the current answer to finish.'
+      })
+      return
+    }
+
     let validated: AskQuestionRequest
     try {
       validated = validateAskRequest(request)
@@ -40,37 +53,39 @@ export function createCodexService(deps: CodexServiceDeps): CodexService {
     }
 
     const outputFile = join(deps.scratchRoot, `answer-${validated.requestId}.txt`)
+    inFlight = true
     try {
       await mkdir(deps.scratchRoot, { recursive: true })
       const args = buildCodexArgs({
         prompt: buildPrompt(validated.question),
         outputFile,
-        workdir: deps.scratchRoot,
+        workdir: deps.scratchRoot
       })
       const result = await runCodexQuery(
         {
           command: deps.command ?? CODEX.command,
           args,
           outputFile,
-          timeoutMs: CODEX.timeoutMs,
+          timeoutMs: CODEX.timeoutMs
         },
         {
           onChunk: (delta) =>
-            deps.emit(IpcChannel.AnswerChunk, { requestId: validated.requestId, delta }),
-        },
+            deps.emit(IpcChannel.AnswerChunk, { requestId: validated.requestId, delta })
+        }
       )
       if (result.ok) {
         deps.emit(IpcChannel.AnswerDone, { requestId: validated.requestId, text: result.text })
       } else {
         deps.emit(IpcChannel.AnswerError, {
           requestId: validated.requestId,
-          message: result.error,
+          message: result.error
         })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown Codex error.'
       deps.emit(IpcChannel.AnswerError, { requestId: validated.requestId, message })
     } finally {
+      inFlight = false
       await rm(outputFile, { force: true }).catch(() => {})
     }
   }

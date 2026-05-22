@@ -1,12 +1,13 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { join } from 'path'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createOverlayWindow } from './windows/overlay-window'
 import { createCodexService } from './codex/codex-service'
 import { checkCodexAvailability } from './codex/availability'
+import { resolveCodexPath } from './codex/resolve-codex-path'
 import {
   createOverlayState,
   toggleInvisible,
@@ -54,9 +55,26 @@ function handleHotkey(action: HotkeyAction): void {
   pushState()
 }
 
-function getCodexVersion(): Promise<string | null> {
+// Resolves `codex` via the `which` binary at its fixed absolute location.
+// Returns null on any failure or when nothing is found.
+function runWhich(): string | null {
+  try {
+    const found = execFileSync('/usr/bin/which', ['codex']).toString().trim()
+    return found.length > 0 ? found : null
+  } catch {
+    return null
+  }
+}
+
+// Reads `codex --version` from the resolved absolute path. Resolves to null
+// immediately when codex could not be located (no spawn).
+function getCodexVersion(codexPath: string | null): Promise<string | null> {
   return new Promise((resolve) => {
-    execFile('codex', ['--version'], (error, stdout) => {
+    if (codexPath === null) {
+      resolve(null)
+      return
+    }
+    execFile(codexPath, ['--version'], (error, stdout) => {
       resolve(error ? null : stdout.trim() || null)
     })
   })
@@ -70,6 +88,9 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.customcluely.app')
   app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win))
 
+  // Resolve the codex binary to an absolute path once, before any spawn.
+  const codexPath = resolveCodexPath({ fileExists: existsSync, runWhich })
+
   overlay = createOverlayWindow()
   overlay.on('ready-to-show', () => pushState())
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -81,7 +102,11 @@ app.whenReady().then(() => {
   state = setVisible(state, true)
 
   const scratchRoot = join(app.getPath('userData'), CODEX.scratchDirName)
-  const codexService = createCodexService({ scratchRoot, emit: emitToOverlay })
+  const codexService = createCodexService({
+    scratchRoot,
+    emit: emitToOverlay,
+    command: codexPath ?? undefined
+  })
 
   registerIpcHandlers(ipcMain, {
     onToggleInvisibility: () => {
@@ -94,7 +119,7 @@ app.whenReady().then(() => {
   })
 
   void checkCodexAvailability({
-    getVersion: getCodexVersion,
+    getVersion: () => getCodexVersion(codexPath),
     authFileExists: () => existsSync(join(homedir(), '.codex', 'auth.json'))
   }).then((status) => emitToOverlay(IpcChannel.CodexStatus, status))
 

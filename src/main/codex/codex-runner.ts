@@ -18,12 +18,22 @@ export interface RunCodexHandlers {
 export interface RunCodexResult {
   ok: boolean
   text: string
+  /**
+   * User-facing message. Safe to forward to the renderer: it carries only
+   * Codex's own structured error message or generic text, never raw stderr.
+   */
   error: string
+  /**
+   * Raw internal detail (raw stderr) for future main-process logging only.
+   * Always present; empty string when there is nothing. NEVER emit this to
+   * the renderer, as it can contain absolute filesystem paths.
+   */
+  diagnostic: string
 }
 
 export function runCodexQuery(
   input: RunCodexInput,
-  handlers: RunCodexHandlers,
+  handlers: RunCodexHandlers
 ): Promise<RunCodexResult> {
   return new Promise((resolve) => {
     const child = spawn(input.command, input.args, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -43,14 +53,24 @@ export function runCodexQuery(
 
     const timer = setTimeout(() => {
       child.kill('SIGKILL')
-      finish({ ok: false, text: '', error: `Codex timed out after ${input.timeoutMs} ms.` })
+      finish({
+        ok: false,
+        text: '',
+        error: `Codex timed out after ${input.timeoutMs} ms.`,
+        diagnostic: ''
+      })
     }, input.timeoutMs)
 
     // Register the error handler before touching the stdio streams. When spawn
     // fails (for example the binary is missing), child.stdout and child.stderr
     // can be null and the failure is delivered through this event.
     child.on('error', (err: Error) => {
-      finish({ ok: false, text: '', error: `Failed to start Codex: ${err.message}` })
+      finish({
+        ok: false,
+        text: '',
+        error: `Failed to start Codex: ${err.message}`,
+        diagnostic: ''
+      })
     })
 
     if (child.stdout) {
@@ -81,12 +101,15 @@ export function runCodexQuery(
     child.on('close', (code: number | null) => {
       if (code === 0) {
         readFile(input.outputFile, 'utf8')
-          .then((text) => finish({ ok: true, text: text.trim(), error: '' }))
-          .catch(() => finish({ ok: true, text: acc.full.trim(), error: '' }))
+          .then((text) => finish({ ok: true, text: text.trim(), error: '', diagnostic: '' }))
+          .catch(() => finish({ ok: true, text: acc.full.trim(), error: '', diagnostic: '' }))
         return
       }
-      const detail = streamError || stderr.trim() || `Codex exited with code ${code}.`
-      finish({ ok: false, text: '', error: detail })
+      // streamError is Codex's own structured message and is safe to surface.
+      // Raw stderr is NOT: it can leak filesystem paths, so it goes to the
+      // internal-only diagnostic field and never into the user-facing error.
+      const error = streamError || `Codex could not complete the request (exit code ${code}).`
+      finish({ ok: false, text: '', error, diagnostic: stderr.trim() })
     })
   })
 }

@@ -22,6 +22,10 @@ export const GLOBAL_HOTKEYS: Record<string, HotkeyAction> = {
 }
 
 export const CODEX = {
+  // Absolute candidate locations for the codex binary, in priority order.
+  // Resolving an absolute path avoids a PATH-lookup hijack surface.
+  knownPaths: ['/opt/homebrew/bin/codex', '/usr/local/bin/codex'],
+  // Last-resort fallback when no absolute path can be resolved.
   command: 'codex',
   timeoutMs: 60_000,
   scratchDirName: '.codex-scratch',
