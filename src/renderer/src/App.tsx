@@ -3,16 +3,18 @@ import { CommandBar } from './components/CommandBar'
 import { TranscriptPanel } from './components/TranscriptPanel'
 import { AnswerPanel } from './components/AnswerPanel'
 import { EyeToggle } from './components/EyeToggle'
+import { ListenToggle } from './components/ListenToggle'
 import { SetupBanner } from './components/SetupBanner'
 import { useCodexAnswer } from './hooks/useCodexAnswer'
-import type { OverlayState, TranscriptSegment, CodexStatus } from '../../shared/types'
+import { useTranscript } from './hooks/useTranscript'
+import type { OverlayState, CodexStatus } from '../../shared/types'
 import './styles/theme.css'
 
 export function App(): React.JSX.Element {
   const [invisible, setInvisible] = useState(false)
-  const [segments] = useState<TranscriptSegment[]>([])
   const [setupMessage, setSetupMessage] = useState<string | null>(null)
   const { state, ask, retry } = useCodexAnswer()
+  const { segments, listening, startListening, stopListening } = useTranscript()
 
   useEffect(() => {
     const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
@@ -32,6 +34,10 @@ export function App(): React.JSX.Element {
       <SetupBanner message={setupMessage} />
       <div className="app__bar">
         <CommandBar onSubmit={ask} disabled={state.status === 'streaming'} />
+        <ListenToggle
+          listening={listening}
+          onToggle={() => (listening ? stopListening() : startListening())}
+        />
         <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
       </div>
       {state.question.length > 0 && <p className="app__active-question">{state.question}</p>}
