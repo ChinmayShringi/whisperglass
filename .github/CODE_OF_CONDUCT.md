@@ -31,9 +31,11 @@ an individual is officially representing the project in public spaces.
 
 ## Reporting
 
-If you experience or witness unacceptable behavior, please report it to the
-project maintainers at **shringiishaan@gmail.com**. All reports will be
-reviewed and investigated promptly and handled confidentially.
+If you experience or witness unacceptable behavior, please report it
+confidentially to the project maintainers through GitHub. Open a private
+report from the repository's **Security** tab (**Report a vulnerability**),
+or contact the maintainer directly on their GitHub profile. All reports
+will be reviewed and investigated promptly and handled confidentially.
 
 Maintainers are responsible for clarifying and enforcing this code of conduct
 and may take any action they deem appropriate, up to and including a temporary
