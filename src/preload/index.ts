@@ -1,19 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { createOverlayApi } from './api'
 
-// Customcluely overlay API for renderer
-const customcluelyApi = createOverlayApi(ipcRenderer)
+// Whisperglass overlay API for renderer
+const whisperglassApi = createOverlayApi(ipcRenderer)
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('customcluely', customcluelyApi)
+    contextBridge.exposeInMainWorld('whisperglass', whisperglassApi)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.customcluely = customcluelyApi
+  window.whisperglass = whisperglassApi
 }

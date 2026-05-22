@@ -177,7 +177,7 @@ app.whenReady().then(() => {
         const pane = permission.kind === 'screen' ? 'Screen Recording' : 'Microphone'
         emitToOverlay(IpcChannel.SidecarStatus, {
           state: 'error',
-          detail: `${pane} permission is denied. Grant it to Customcluely in System Settings > Privacy & Security > ${pane}.`
+          detail: `${pane} permission is denied. Grant it to Whisperglass in System Settings > Privacy & Security > ${pane}.`
         })
       }
     }

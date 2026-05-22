@@ -28,11 +28,7 @@ export interface UseCodexAnswer {
   /** Sends a plain question with no transcript or screenshot context. */
   ask: (question: string) => void
   /** Sends a question grounded in the transcript, optionally with a shot. */
-  askContext: (
-    question: string,
-    segments: TranscriptSegment[],
-    options: AskContextOptions
-  ) => void
+  askContext: (question: string, segments: TranscriptSegment[], options: AskContextOptions) => void
   retry: () => void
 }
 
@@ -44,15 +40,15 @@ export function useCodexAnswer(): UseCodexAnswer {
   const lastQuestionRef = useRef('')
 
   useEffect(() => {
-    const offChunk = window.customcluely.onAnswerChunk((chunk: AnswerChunk) => {
+    const offChunk = window.whisperglass.onAnswerChunk((chunk: AnswerChunk) => {
       if (chunk.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'streaming', text: s.text + chunk.delta }))
     })
-    const offDone = window.customcluely.onAnswerDone((result: AnswerResult) => {
+    const offDone = window.whisperglass.onAnswerDone((result: AnswerResult) => {
       if (result.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'done', text: result.text }))
     })
-    const offError = window.customcluely.onAnswerError((error: AnswerError) => {
+    const offError = window.whisperglass.onAnswerError((error: AnswerError) => {
       if (error.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'error', error: error.message }))
     })
@@ -70,7 +66,7 @@ export function useCodexAnswer(): UseCodexAnswer {
     requestIdRef.current = requestId
     lastQuestionRef.current = trimmed
     setState({ status: 'streaming', question: trimmed, text: '', error: '' })
-    window.customcluely.askQuestion({ requestId, question: trimmed })
+    window.whisperglass.askQuestion({ requestId, question: trimmed })
   }, [])
 
   const askContext = useCallback(
@@ -81,7 +77,7 @@ export function useCodexAnswer(): UseCodexAnswer {
       requestIdRef.current = requestId
       lastQuestionRef.current = trimmed
       setState({ status: 'streaming', question: trimmed, text: '', error: '' })
-      window.customcluely.askContextQuestion({
+      window.whisperglass.askContextQuestion({
         requestId,
         question: trimmed,
         segments,

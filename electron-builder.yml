@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: customcluely-scaffold
+appId: com.whisperglass.app
+productName: Whisperglass
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: customcluely-scaffold
+  executableName: whisperglass
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

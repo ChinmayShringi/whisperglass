@@ -19,7 +19,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -39,7 +39,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -59,7 +59,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -81,7 +81,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar-crash.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -105,9 +105,9 @@ describe('createSidecarSupervisor', () => {
   it('emits an error status and schedules a restart when spawn fails', async () => {
     const callbacks = makeCallbacks()
     const supervisor = createSidecarSupervisor({
-      command: '/nonexistent/customcluely-sidecar-binary',
+      command: '/nonexistent/whisperglass-sidecar-binary',
       prefixArgs: [],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -132,7 +132,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,

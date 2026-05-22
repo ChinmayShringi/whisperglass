@@ -25,10 +25,10 @@ export function App(): React.JSX.Element {
   const busy = state.status === 'streaming'
 
   useEffect(() => {
-    const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
+    const offState = window.whisperglass.onOverlayState((overlay: OverlayState) => {
       setInvisible(overlay.invisible)
     })
-    const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
+    const offStatus = window.whisperglass.onCodexStatus((status: CodexStatus) => {
       setSetupMessage(status.available && status.authenticated ? null : status.detail)
     })
     return () => {
@@ -69,7 +69,7 @@ export function App(): React.JSX.Element {
       }
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 's') {
         event.preventDefault()
-        window.customcluely.requestScreenshot()
+        window.whisperglass.requestScreenshot()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -89,12 +89,15 @@ export function App(): React.JSX.Element {
         <button
           className="command-bar__screenshot"
           aria-label="Capture screenshot"
-          onClick={() => window.customcluely.requestScreenshot()}
+          onClick={() => window.whisperglass.requestScreenshot()}
         >
           Screenshot
         </button>
         <ListenToggle listening={active} onToggle={toggle} />
-        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
+        <EyeToggle
+          invisible={invisible}
+          onToggle={() => window.whisperglass.toggleInvisibility()}
+        />
       </div>
       <DefaultActions onAction={runDefaultAction} disabled={busy} />
       {active && <InsightList insights={insights} onAnswer={answerInsight} disabled={busy} />}

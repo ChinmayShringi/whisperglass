@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Per the roadmap, every task runs through the 3-agent pipeline (implementer, auditor, documenter).
 
-**Goal:** Deliver the full Cluely Live Insights experience on top of Phases 1 to 4: a rolling transcript summarizer that keeps the Codex prompt bounded as a meeting runs long, a screenshot-context attachment path so a query can carry the screen, a row of Default Actions (preset prompts), a dynamic insight detector that surfaces questions and keywords from the transcript, and an explicit session manager so insights show only during an active meeting. The acceptance check is a full meeting flow: start a session, listen, have a question detected, and answer it using the rolling transcript plus an optional screenshot.
+**Goal:** Deliver the full live meeting insights experience on top of Phases 1 to 4: a rolling transcript summarizer that keeps the Codex prompt bounded as a meeting runs long, a screenshot-context attachment path so a query can carry the screen, a row of Default Actions (preset prompts), a dynamic insight detector that surfaces questions and keywords from the transcript, and an explicit session manager so insights show only during an active meeting. The acceptance check is a full meeting flow: start a session, listen, have a question detected, and answer it using the rolling transcript plus an optional screenshot.
 
 **Architecture:** All Phase 5 logic lives in pure, dependency-injected, deterministic modules so it is fully unit-testable; the renderer wiring is a thin layer on top. The rolling transcript summarizer (`transcript-context.ts`) is a pure module that takes the full segment list and a character budget and returns a bounded context string: recent segments verbatim plus a char-budgeted compaction of older segments, with no extra Codex call. The Codex path is extended through a single new entry point on `CodexService` (`handleContextAsk`) that accepts a question, the transcript segments, an optional screenshot file path, and optional extra codex args; `prompt-builder` gains a transcript-aware builder and `codex-args` gains an `imagePath` plus an `extraArgs` field. Default Actions are five entries in a pure `default-actions.ts` table (id, label, prompt template, codex-arg modifiers); "Fact check" adds `--search`. The dynamic insight detector (`insight-detector.ts`) is a pure rule-based scanner: it flags transcript segments that are questions (interrogative opener or `?` ending) or carry salient keywords, and returns a ranked, de-duplicated insight list. The session manager (`session-manager.ts`) is a pure state machine wrapping start/stop; the renderer's existing `ListenToggle` is repurposed as the session start/stop control, and insight detection plus the insight surface are gated on an active session. Screenshots requested from the Phase 4 sidecar are written to the Codex scratch directory as PNG files and attached to the next query via `-i`.
 
@@ -1188,7 +1188,7 @@ export interface DefaultAction {
   extraArgs: string[]
 }
 
-// The five Default Actions cloned from Cluely Live Insights (design spec
+// The five Default Actions for live meeting insights (design spec
 // section 12). Each maps to a preset prompt fed to the existing Codex
 // context-ask path. Only Fact check adds `--search`; the rest run a normal
 // read-only query. Pure data: no I/O, fully unit-testable.
@@ -1609,7 +1609,7 @@ export function stopSession(state: SessionState): SessionState {
 }
 
 // True only while a session is active. The overlay surfaces dynamic insights
-// only when this is true, matching Cluely's session-scoped insight model.
+// only when this is true, using a session-scoped insight model.
 export function insightsEnabled(state: SessionState): boolean {
   return state.status === 'active'
 }
@@ -2467,7 +2467,7 @@ export interface UseInsights {
 
 // Runs the pure rule-based insight detector over the live transcript while a
 // session is active. When the session is inactive it returns no insights, so
-// the overlay surfaces insights only during a meeting (matching Cluely's
+// the overlay surfaces insights only during a meeting (using a
 // session-scoped model). The detection itself is deterministic and memoized
 // on the segments and the active flag.
 export function useInsights(segments: TranscriptSegment[], active: boolean): UseInsights {
@@ -2499,7 +2499,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useSession } from '../../../src/renderer/src/hooks/useSession'
 
 beforeEach(() => {
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn(),
@@ -2528,7 +2528,7 @@ describe('useSession', () => {
     const { result } = renderHook(() => useSession())
     act(() => result.current.toggle())
     expect(result.current.active).toBe(true)
-    expect(window.customcluely.startTranscription).toHaveBeenCalledOnce()
+    expect(window.whisperglass.startTranscription).toHaveBeenCalledOnce()
   })
 
   it('toggling twice ends the session and stops transcription capture', () => {
@@ -2536,7 +2536,7 @@ describe('useSession', () => {
     act(() => result.current.toggle())
     act(() => result.current.toggle())
     expect(result.current.active).toBe(false)
-    expect(window.customcluely.stopTranscription).toHaveBeenCalledOnce()
+    expect(window.whisperglass.stopTranscription).toHaveBeenCalledOnce()
   })
 
   it('exposes the live transcript segments from the composed transcript hook', () => {
@@ -2642,7 +2642,7 @@ This task closes the typecheck-red note opened in Task 9 by giving `index.ts` th
 
 - [ ] **Step 1: Write the failing test for askContext**
 
-Append this block to `tests/renderer/hooks/useCodexAnswer.test.ts` inside the existing top-level area (keep every existing import and case; the file already sets up `window.customcluely` in a `beforeEach`, so ensure that mock object includes `askContextQuestion: vi.fn()` and `requestScreenshot: vi.fn()` alongside the existing methods):
+Append this block to `tests/renderer/hooks/useCodexAnswer.test.ts` inside the existing top-level area (keep every existing import and case; the file already sets up `window.whisperglass` in a `beforeEach`, so ensure that mock object includes `askContextQuestion: vi.fn()` and `requestScreenshot: vi.fn()` alongside the existing methods):
 
 ```typescript
 describe('useCodexAnswer.askContext', () => {
@@ -2654,8 +2654,8 @@ describe('useCodexAnswer.askContext', () => {
         extraArgs: ['--search']
       })
     )
-    expect(window.customcluely.askContextQuestion).toHaveBeenCalledOnce()
-    const sent = (window.customcluely.askContextQuestion as ReturnType<typeof vi.fn>).mock
+    expect(window.whisperglass.askContextQuestion).toHaveBeenCalledOnce()
+    const sent = (window.whisperglass.askContextQuestion as ReturnType<typeof vi.fn>).mock
       .calls[0][0]
     expect(sent.question).toBe('recap please')
     expect(sent.segments).toHaveLength(1)
@@ -2673,12 +2673,12 @@ describe('useCodexAnswer.askContext', () => {
   it('ignores an empty context question', () => {
     const { result } = renderHook(() => useCodexAnswer())
     act(() => result.current.askContext('   ', [], { screenshot: false, extraArgs: [] }))
-    expect(window.customcluely.askContextQuestion).not.toHaveBeenCalled()
+    expect(window.whisperglass.askContextQuestion).not.toHaveBeenCalled()
   })
 })
 ```
 
-If `useCodexAnswer.test.ts` does not already define a full `window.customcluely` mock with the Phase 5 methods, update its `beforeEach` to add `askContextQuestion: vi.fn()` and `requestScreenshot: vi.fn()` to the mock object.
+If `useCodexAnswer.test.ts` does not already define a full `window.whisperglass` mock with the Phase 5 methods, update its `beforeEach` to add `askContextQuestion: vi.fn()` and `requestScreenshot: vi.fn()` to the mock object.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -2736,15 +2736,15 @@ export function useCodexAnswer(): UseCodexAnswer {
   const lastQuestionRef = useRef('')
 
   useEffect(() => {
-    const offChunk = window.customcluely.onAnswerChunk((chunk: AnswerChunk) => {
+    const offChunk = window.whisperglass.onAnswerChunk((chunk: AnswerChunk) => {
       if (chunk.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'streaming', text: s.text + chunk.delta }))
     })
-    const offDone = window.customcluely.onAnswerDone((result: AnswerResult) => {
+    const offDone = window.whisperglass.onAnswerDone((result: AnswerResult) => {
       if (result.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'done', text: result.text }))
     })
-    const offError = window.customcluely.onAnswerError((error: AnswerError) => {
+    const offError = window.whisperglass.onAnswerError((error: AnswerError) => {
       if (error.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'error', error: error.message }))
     })
@@ -2762,7 +2762,7 @@ export function useCodexAnswer(): UseCodexAnswer {
     requestIdRef.current = requestId
     lastQuestionRef.current = trimmed
     setState({ status: 'streaming', question: trimmed, text: '', error: '' })
-    window.customcluely.askQuestion({ requestId, question: trimmed })
+    window.whisperglass.askQuestion({ requestId, question: trimmed })
   }, [])
 
   const askContext = useCallback(
@@ -2773,7 +2773,7 @@ export function useCodexAnswer(): UseCodexAnswer {
       requestIdRef.current = requestId
       lastQuestionRef.current = trimmed
       setState({ status: 'streaming', question: trimmed, text: '', error: '' })
-      window.customcluely.askContextQuestion({
+      window.whisperglass.askContextQuestion({
         requestId,
         question: trimmed,
         segments,
@@ -2922,7 +2922,7 @@ beforeEach(() => {
   requestScreenshot = vi.fn()
   startTranscription = vi.fn()
   transcriptUpdateCb = () => {}
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion,
@@ -3052,10 +3052,10 @@ export function App(): React.JSX.Element {
   const busy = state.status === 'streaming'
 
   useEffect(() => {
-    const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
+    const offState = window.whisperglass.onOverlayState((overlay: OverlayState) => {
       setInvisible(overlay.invisible)
     })
-    const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
+    const offStatus = window.whisperglass.onCodexStatus((status: CodexStatus) => {
       setSetupMessage(status.available && status.authenticated ? null : status.detail)
     })
     return () => {
@@ -3097,7 +3097,7 @@ export function App(): React.JSX.Element {
       }
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 's') {
         event.preventDefault()
-        window.customcluely.requestScreenshot()
+        window.whisperglass.requestScreenshot()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -3117,12 +3117,12 @@ export function App(): React.JSX.Element {
         <button
           className="command-bar__screenshot"
           aria-label="Capture screenshot"
-          onClick={() => window.customcluely.requestScreenshot()}
+          onClick={() => window.whisperglass.requestScreenshot()}
         >
           Screenshot
         </button>
         <ListenToggle listening={active} onToggle={toggle} />
-        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
+        <EyeToggle invisible={invisible} onToggle={() => window.whisperglass.toggleInvisibility()} />
       </div>
       <DefaultActions onAction={runDefaultAction} disabled={busy} />
       {active && <InsightList insights={insights} onAnswer={answerInsight} disabled={busy} />}
@@ -3230,7 +3230,7 @@ Perform these on macOS arm64 with a working microphone, the codex CLI authentica
 - [ ] Press `Tab` (with no text input focused). Confirm the first insight is answered: the answer panel streams a Codex answer grounded in the transcript.
 - [ ] Type a custom question in the command bar and submit with the Ask button. Confirm a plain answer streams in.
 - [ ] Click each of the five Default Actions ("What should I say next", "Follow-up questions", "Fact check", "Recap", "Coding help"). Confirm each streams an answer that reflects the meeting transcript. Confirm "Fact check" still answers (it runs with `--search`).
-- [ ] Click the "Screenshot" button (or press `Cmd+Shift+S`). Then run a Default Action or ask a question and confirm the answer can reference on-screen content. Confirm the screenshot does NOT contain the Customcluely overlay window (the Phase 4 exclusion still holds).
+- [ ] Click the "Screenshot" button (or press `Cmd+Shift+S`). Then run a Default Action or ask a question and confirm the answer can reference on-screen content. Confirm the screenshot does NOT contain the Whisperglass overlay window (the Phase 4 exclusion still holds).
 - [ ] Let the meeting run long enough to produce more than a dozen transcript segments. Confirm answers stay fast and relevant (the rolling summarizer keeps the prompt bounded; older content is compacted, recent content is verbatim).
 - [ ] Click "Stop listening". Confirm the session ends, the insight surface disappears, and the transcript freezes (no new lines while you keep speaking).
 - [ ] Click "Start listening" again. Confirm a fresh session starts with an empty transcript and no stale insights from the previous session.

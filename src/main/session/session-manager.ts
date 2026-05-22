@@ -32,7 +32,7 @@ export function stopSession(state: SessionState): SessionState {
 }
 
 // True only while a session is active. The overlay surfaces dynamic insights
-// only when this is true, matching Cluely's session-scoped insight model.
+// only when this is true, using a session-scoped insight model.
 export function insightsEnabled(state: SessionState): boolean {
   return state.status === 'active'
 }

@@ -15,7 +15,7 @@ export interface DefaultAction {
   extraArgs: string[]
 }
 
-// The five Default Actions cloned from Cluely Live Insights (design spec
+// The five Default Actions for live meeting insights (design spec
 // section 12). Each maps to a preset prompt fed to the existing Codex
 // context-ask path. Only Fact check adds `--search`; the rest run a normal
 // read-only query. Pure data: no I/O, fully unit-testable.

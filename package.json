@@ -1,9 +1,34 @@
 {
-  "name": "customcluely",
+  "name": "whisperglass",
   "version": "1.0.0",
-  "description": "Local macOS Cluely Live Insights clone",
+  "description": "Local-first macOS AI meeting-copilot overlay: on-device transcription, answers via the codex CLI, no API key.",
   "main": "./out/main/index.js",
   "author": "Chinmay Shringi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChinmayShringi/whisperglass.git"
+  },
+  "homepage": "https://github.com/ChinmayShringi/whisperglass#readme",
+  "bugs": {
+    "url": "https://github.com/ChinmayShringi/whisperglass/issues"
+  },
+  "keywords": [
+    "electron",
+    "typescript",
+    "react",
+    "macos",
+    "whisper-cpp",
+    "transcription",
+    "ai",
+    "meeting-assistant",
+    "codex",
+    "overlay",
+    "on-device",
+    "local-first",
+    "privacy",
+    "speech-to-text"
+  ],
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

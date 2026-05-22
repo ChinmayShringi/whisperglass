@@ -24,15 +24,15 @@ Verified on 2026-05-22. Treat as fixed inputs.
 
 5. **Screenshot capture.** A single frame is captured with `SCScreenshotManager.captureImage(contentFilter:configuration:)` (macOS 14.0+; a capture bug in 14.0 to 14.3 was fixed in 14.4, acceptable for v1 local use on a current OS). It takes an `SCContentFilter` and an `SCStreamConfiguration` and returns a `CGImage`. The overlay is excluded by passing the same `SCContentFilter(display:excludingWindows:)` used for audio. The `CGImage` is encoded to PNG with `NSBitmapImageRep(cgImage:)` then `representation(using: .png, properties: [:])`, and the PNG `Data` is base64-encoded into the protocol's `screenshot` message. The overlay window is identified inside the sidecar by matching `SCWindow.owningApplication?.bundleIdentifier` against the app bundle id passed on the `start` message, plus the window title; the simplest robust v1 rule is to exclude every window owned by the app's own bundle id.
 
-6. **macOS TCC permissions for a helper binary.** Screen Recording: `CGPreflightScreenCaptureAccess()` checks whether access is granted (it never prompts); `CGRequestScreenCaptureAccess()` requests it and returns the resulting Boolean. Microphone: `AVCaptureDevice.authorizationStatus(for: .audio)` returns `.authorized`/`.denied`/`.notDetermined`/`.restricted`, and `AVCaptureDevice.requestAccess(for: .audio)` prompts. Known issue (spec section 19): a plain command-line executable that is NOT inside a properly structured `.app` bundle still receives and honors the screen-recording permission once granted, but does not appear by name in System Settings to Screen Recording. macOS ties the permission to the code-signing identity, and an ad-hoc-signed binary's identity changes every build. **Dev-time decision for v1 (recorded below):** the sidecar is launched as a child process of the Electron `.app`; the TCC permission attaches to the parent app's identity and the parent app is what appears in System Settings. The plan does not notarize or build a separate helper `.app` bundle (explicitly out of v1 scope). The sidecar simply detects denial and reports it over the protocol; the renderer banner deep-links to the System Settings pane and instructs the user to grant the permission to "Customcluely" (the Electron app). This is the pragmatic, documented dev-time caveat; it is verified in the Phase 4 manual checklist.
+6. **macOS TCC permissions for a helper binary.** Screen Recording: `CGPreflightScreenCaptureAccess()` checks whether access is granted (it never prompts); `CGRequestScreenCaptureAccess()` requests it and returns the resulting Boolean. Microphone: `AVCaptureDevice.authorizationStatus(for: .audio)` returns `.authorized`/`.denied`/`.notDetermined`/`.restricted`, and `AVCaptureDevice.requestAccess(for: .audio)` prompts. Known issue (spec section 19): a plain command-line executable that is NOT inside a properly structured `.app` bundle still receives and honors the screen-recording permission once granted, but does not appear by name in System Settings to Screen Recording. macOS ties the permission to the code-signing identity, and an ad-hoc-signed binary's identity changes every build. **Dev-time decision for v1 (recorded below):** the sidecar is launched as a child process of the Electron `.app`; the TCC permission attaches to the parent app's identity and the parent app is what appears in System Settings. The plan does not notarize or build a separate helper `.app` bundle (explicitly out of v1 scope). The sidecar simply detects denial and reports it over the protocol; the renderer banner deep-links to the System Settings pane and instructs the user to grant the permission to "Whisperglass" (the Electron app). This is the pragmatic, documented dev-time caveat; it is verified in the Phase 4 manual checklist.
 
 7. **Electron spawning a long-lived Swift child over stdio.** The project already supervises `codex` (`src/main/codex/codex-runner.ts`, transient per query) and `whisper-cli` (`src/main/transcription/whisper-runner.ts`, spawned per window). Both use `child_process.spawn` with `stdio: ['ignore', 'pipe', 'pipe']`, bind the `error` handler before touching stdio streams, and keep raw stderr out of user-facing messages (the `diagnostic` vs `error` split). The sidecar differs in being long-lived and bidirectional: main writes JSON commands to the child's `stdin` and reads newline-delimited JSON events from its `stdout`. The supervisor reuses the existing `splitLines` line buffer from `src/main/codex/line-splitter.ts` to frame stdout, mirrors the `whisper-runner.ts` error handling, and adds spawn-on-crash with exponential backoff.
 
-8. **Sidecar binary build and bundling (mirrors `scripts/setup-whisper.sh`).** Phase 3 ships `scripts/setup-whisper.sh`, which builds a native binary and copies it into `resources/`. Phase 4 adds the analogous `scripts/setup-sidecar.sh`, which runs `swift build -c release --package-path sidecar` and copies `sidecar/.build/release/customcluely-sidecar` to `resources/sidecar/customcluely-sidecar`. `index.ts` resolves it exactly as it resolves `whisper-cli`: a pure `resolveSidecarPath` resolver under a `resourcesRoot`. The compiled binary IS committed to git (it is small and the app must run without re-building); `sidecar/.build/` is already gitignored. `resources/sidecar/customcluely-sidecar` is added to git; `electron-builder` already copies `resources/**` into the packaged app.
+8. **Sidecar binary build and bundling (mirrors `scripts/setup-whisper.sh`).** Phase 3 ships `scripts/setup-whisper.sh`, which builds a native binary and copies it into `resources/`. Phase 4 adds the analogous `scripts/setup-sidecar.sh`, which runs `swift build -c release --package-path sidecar` and copies `sidecar/.build/release/whisperglass-sidecar` to `resources/sidecar/whisperglass-sidecar`. `index.ts` resolves it exactly as it resolves `whisper-cli`: a pure `resolveSidecarPath` resolver under a `resourcesRoot`. The compiled binary IS committed to git (it is small and the app must run without re-building); `sidecar/.build/` is already gitignored. `resources/sidecar/whisperglass-sidecar` is added to git; `electron-builder` already copies `resources/**` into the packaged app.
 
 ## Decisions recorded
 
-- **Sidecar build and bundling.** Build script: `scripts/setup-sidecar.sh`. Build command: `swift build -c release --package-path sidecar`. Destination: `resources/sidecar/customcluely-sidecar`, committed to git. `index.ts` resolves it via a pure `resolveSidecarPath({ resourcesRoot, fileExists })` returning `{ binaryPath, binaryPresent }`, identical in spirit to `resolveWhisperPaths`. A `resources/sidecar/.gitkeep` keeps the directory tracked.
+- **Sidecar build and bundling.** Build script: `scripts/setup-sidecar.sh`. Build command: `swift build -c release --package-path sidecar`. Destination: `resources/sidecar/whisperglass-sidecar`, committed to git. `index.ts` resolves it via a pure `resolveSidecarPath({ resourcesRoot, fileExists })` returning `{ binaryPath, binaryPresent }`, identical in spirit to `resolveWhisperPaths`. A `resources/sidecar/.gitkeep` keeps the directory tracked.
 
 - **Protocol framing and malformed-line tolerance.** Newline-delimited JSON, UTF-8, one JSON object per line, exactly as spec section 11. The TS-side parser (`sidecar-protocol.ts`) is pure and total: `parseSidecarLine(line)` returns a discriminated union event and, for any line that is empty, not valid JSON, missing `type`, or carrying an unknown `type`, returns `{ kind: 'ignored' }` and NEVER throws. This mirrors the defensive `parseCodexLine` style in `src/main/codex/event-parser.ts`. The Swift `StdioProtocol` decoder is equally defensive: an unparseable line is dropped. The encoder always emits compact single-line JSON terminated by `\n`.
 
@@ -40,7 +40,7 @@ Verified on 2026-05-22. Treat as fixed inputs.
 
 - **Supervisor restart with backoff and "audio paused" surfacing.** `SidecarSupervisor` restarts the process on unexpected exit with exponential backoff (1 s, 2 s, 4 s, 8 s, capped at 8 s; reset to 1 s after a process stays up past a stable threshold). A new `IpcChannel.SidecarStatus` channel carries a `SidecarStatusPayload` (`{ state: 'capturing' | 'paused' | 'stopped' | 'error', detail: string }`), following the `TranscriptionStatusPayload` precedent. While the sidecar is down and being restarted, the supervisor emits `state: 'paused'` with detail "Audio paused, reconnecting capture..."; when it is back up and capturing it emits `state: 'capturing'`. The renderer shows an "audio paused" banner from this status.
 
-- **Dev-time TCC story.** Per pinned fact 6: the sidecar runs as a child of the Electron `.app`, so screen-recording and microphone permissions attach to the parent app's code-signing identity, and "Customcluely" is what the user grants in System Settings. No separate helper bundle, no notarization (out of v1 scope). The sidecar detects denial via `CGPreflightScreenCaptureAccess()` and `AVCaptureDevice.authorizationStatus(for:)`, emits `permission` messages, and the renderer surfaces a banner deep-linking to the relevant System Settings pane. In dev, after the first `npm run dev`, the user grants the permission once to the Electron dev app; ad-hoc rebuilds of the Swift binary alone do not change the parent app identity, so the grant persists. The Phase 4 verification doc records this caveat and the manual grant step.
+- **Dev-time TCC story.** Per pinned fact 6: the sidecar runs as a child of the Electron `.app`, so screen-recording and microphone permissions attach to the parent app's code-signing identity, and "Whisperglass" is what the user grants in System Settings. No separate helper bundle, no notarization (out of v1 scope). The sidecar detects denial via `CGPreflightScreenCaptureAccess()` and `AVCaptureDevice.authorizationStatus(for:)`, emits `permission` messages, and the renderer surfaces a banner deep-linking to the relevant System Settings pane. In dev, after the first `npm run dev`, the user grants the permission once to the Electron dev app; ad-hoc rebuilds of the Swift binary alone do not change the parent app identity, so the grant persists. The Phase 4 verification doc records this caveat and the manual grant step.
 
 ---
 
@@ -50,17 +50,17 @@ Every file created or modified in Phase 4, with its single responsibility.
 
 ### Created - Swift sidecar package (`sidecar/`)
 
-- `sidecar/Package.swift` - SwiftPM manifest: `.macOS(.v14)`, an executable target `customcluely-sidecar`, a library target `SidecarCore` (the pure, testable codec and message types), and a test target `SidecarCoreTests`.
+- `sidecar/Package.swift` - SwiftPM manifest: `.macOS(.v14)`, an executable target `whisperglass-sidecar`, a library target `SidecarCore` (the pure, testable codec and message types), and a test target `SidecarCoreTests`.
 - `sidecar/Sources/SidecarCore/ProtocolMessages.swift` - the `Codable` message types for both directions of the stdio protocol (commands in, events out).
 - `sidecar/Sources/SidecarCore/StdioProtocol.swift` - pure codec: encode an outbound event to a single JSON line; decode an inbound line to a command, tolerating malformed input. No I/O.
-- `sidecar/Sources/customcluely-sidecar/main.swift` - the executable entry point: reads stdin lines, decodes commands via `StdioProtocol`, drives the capture units, writes events to stdout.
-- `sidecar/Sources/customcluely-sidecar/StdioTransport.swift` - thin glue: a line-buffered stdin reader and a stdout writer that serialize access so concurrent capture callbacks never interleave a half-written line.
-- `sidecar/Sources/customcluely-sidecar/AudioResampler.swift` - wraps `AVAudioConverter` to turn an `AVAudioPCMBuffer` (any rate/channels/format) into 16 kHz mono 16-bit PCM `Data`.
-- `sidecar/Sources/customcluely-sidecar/SystemAudioCapture.swift` - ScreenCaptureKit `SCStream` with `capturesAudio`, excluding the overlay window; emits `audio` events with `source: "system"`.
-- `sidecar/Sources/customcluely-sidecar/MicrophoneCapture.swift` - `AVAudioEngine` input-node tap; emits `audio` events with `source: "mic"`.
-- `sidecar/Sources/customcluely-sidecar/ScreenCapture.swift` - on-demand single-frame screenshot via `SCScreenshotManager`, excluding the overlay window; emits a `screenshot` event.
-- `sidecar/Sources/customcluely-sidecar/Permissions.swift` - checks Screen Recording and Microphone TCC status, requests them, emits `permission` events.
-- `sidecar/Sources/customcluely-sidecar/CaptureCoordinator.swift` - owns the three capture units and the permission checks; turns decoded commands (`start`, `screenshot`, `stop`, `shutdown`) into actions and routes their output to the transport.
+- `sidecar/Sources/whisperglass-sidecar/main.swift` - the executable entry point: reads stdin lines, decodes commands via `StdioProtocol`, drives the capture units, writes events to stdout.
+- `sidecar/Sources/whisperglass-sidecar/StdioTransport.swift` - thin glue: a line-buffered stdin reader and a stdout writer that serialize access so concurrent capture callbacks never interleave a half-written line.
+- `sidecar/Sources/whisperglass-sidecar/AudioResampler.swift` - wraps `AVAudioConverter` to turn an `AVAudioPCMBuffer` (any rate/channels/format) into 16 kHz mono 16-bit PCM `Data`.
+- `sidecar/Sources/whisperglass-sidecar/SystemAudioCapture.swift` - ScreenCaptureKit `SCStream` with `capturesAudio`, excluding the overlay window; emits `audio` events with `source: "system"`.
+- `sidecar/Sources/whisperglass-sidecar/MicrophoneCapture.swift` - `AVAudioEngine` input-node tap; emits `audio` events with `source: "mic"`.
+- `sidecar/Sources/whisperglass-sidecar/ScreenCapture.swift` - on-demand single-frame screenshot via `SCScreenshotManager`, excluding the overlay window; emits a `screenshot` event.
+- `sidecar/Sources/whisperglass-sidecar/Permissions.swift` - checks Screen Recording and Microphone TCC status, requests them, emits `permission` events.
+- `sidecar/Sources/whisperglass-sidecar/CaptureCoordinator.swift` - owns the three capture units and the permission checks; turns decoded commands (`start`, `screenshot`, `stop`, `shutdown`) into actions and routes their output to the transport.
 - `sidecar/Tests/SidecarCoreTests/StdioProtocolTests.swift` - XCTest coverage of the pure codec: round-trip every event, decode every command, and confirm malformed lines are dropped.
 
 ### Created - main process (`src/main/sidecar/`)
@@ -71,7 +71,7 @@ Every file created or modified in Phase 4, with its single responsibility.
 
 ### Created - main process (`src/main/transcription/`)
 
-- `src/main/transcription/resolve-sidecar-path.ts` - pure resolver for the bundled `customcluely-sidecar` binary path under a resources root; reports whether it is present.
+- `src/main/transcription/resolve-sidecar-path.ts` - pure resolver for the bundled `whisperglass-sidecar` binary path under a resources root; reports whether it is present.
 
 ### Modified - main process
 
@@ -97,7 +97,7 @@ Every file created or modified in Phase 4, with its single responsibility.
 ### Created - scripts and resources
 
 - `scripts/setup-sidecar.sh` - dev-time script that builds the Swift sidecar in release mode and installs the binary into `resources/sidecar/`.
-- `resources/sidecar/customcluely-sidecar` - the compiled binary, committed (produced by the setup script).
+- `resources/sidecar/whisperglass-sidecar` - the compiled binary, committed (produced by the setup script).
 - `resources/sidecar/.gitkeep` - keeps the directory tracked.
 
 ### Created - tests (`tests/`)
@@ -127,7 +127,7 @@ Every file created or modified in Phase 4, with its single responsibility.
 - Create: `sidecar/Sources/SidecarCore/ProtocolMessages.swift`
 - Create: `sidecar/Sources/SidecarCore/StdioProtocol.swift`
 - Create: `sidecar/Tests/SidecarCoreTests/StdioProtocolTests.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/main.swift` (minimal placeholder so the executable target compiles)
+- Create: `sidecar/Sources/whisperglass-sidecar/main.swift` (minimal placeholder so the executable target compiles)
 
 - [ ] **Step 1: Create the SwiftPM manifest**
 
@@ -138,7 +138,7 @@ Create `sidecar/Package.swift`:
 import PackageDescription
 
 let package = Package(
-    name: "customcluely-sidecar",
+    name: "whisperglass-sidecar",
     platforms: [
         // ScreenCaptureKit audio capture and SCScreenshotManager both require
         // macOS 14. The whole app is macOS-only, so this is the floor.
@@ -152,7 +152,7 @@ let package = Package(
         // The capture executable. Capture units live here; they need real
         // audio and screen hardware and are verified by the manual checklist.
         .executableTarget(
-            name: "customcluely-sidecar",
+            name: "whisperglass-sidecar",
             dependencies: ["SidecarCore"]
         ),
         .testTarget(
@@ -212,11 +212,11 @@ final class StdioProtocolTests: XCTestCase {
     // MARK: decoding commands
 
     func testDecodesStartCommand() {
-        let line = #"{"type":"start","capture":["systemAudio","mic"],"appBundleId":"com.customcluely.app"}"#
+        let line = #"{"type":"start","capture":["systemAudio","mic"],"appBundleId":"com.whisperglass.app"}"#
         let command = StdioProtocol.decodeCommand(line)
         XCTAssertEqual(
             command,
-            .start(capture: ["systemAudio", "mic"], appBundleId: "com.customcluely.app")
+            .start(capture: ["systemAudio", "mic"], appBundleId: "com.whisperglass.app")
         )
     }
 
@@ -299,11 +299,11 @@ final class StdioProtocolTests: XCTestCase {
 - [ ] **Step 4: Run the test to verify it fails**
 
 Run: `swift test --package-path sidecar`
-Expected: FAIL to compile with errors such as `cannot find 'StdioProtocol' in scope` (the type does not exist yet) and `customcluely-sidecar` having no `main.swift`.
+Expected: FAIL to compile with errors such as `cannot find 'StdioProtocol' in scope` (the type does not exist yet) and `whisperglass-sidecar` having no `main.swift`.
 
 - [ ] **Step 5: Create the minimal executable entry point so the package compiles**
 
-Create `sidecar/Sources/customcluely-sidecar/main.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/main.swift`:
 
 ```swift
 // Phase 4 Task 1 placeholder entry point. The full stdin/stdout loop and the
@@ -311,7 +311,7 @@ Create `sidecar/Sources/customcluely-sidecar/main.swift`:
 // lets the executable target compile so `swift test` can build the package.
 import Foundation
 
-FileHandle.standardError.write(Data("customcluely-sidecar: not yet wired\n".utf8))
+FileHandle.standardError.write(Data("whisperglass-sidecar: not yet wired\n".utf8))
 exit(0)
 ```
 
@@ -391,7 +391,7 @@ Expected: PASS, all 13 cases in `StdioProtocolTests` green.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add sidecar/Package.swift sidecar/Sources/SidecarCore sidecar/Sources/customcluely-sidecar/main.swift sidecar/Tests/SidecarCoreTests
+git add sidecar/Package.swift sidecar/Sources/SidecarCore sidecar/Sources/whisperglass-sidecar/main.swift sidecar/Tests/SidecarCoreTests
 git commit -m "feat: scaffold Swift sidecar package and StdioProtocol codec"
 ```
 
@@ -426,8 +426,8 @@ describe('Phase 4 IpcChannel entries', () => {
 
 describe('SIDECAR constants', () => {
   it('pins the binary name, app bundle id, and supervisor timings', () => {
-    expect(SIDECAR.binaryName).toBe('customcluely-sidecar')
-    expect(SIDECAR.appBundleId).toBe('com.customcluely.app')
+    expect(SIDECAR.binaryName).toBe('whisperglass-sidecar')
+    expect(SIDECAR.appBundleId).toBe('com.whisperglass.app')
     expect(SIDECAR.stableUptimeMs).toBe(10_000)
     expect(SIDECAR.maxBackoffMs).toBe(8_000)
     expect(SIDECAR.baseBackoffMs).toBe(1_000)
@@ -544,10 +544,10 @@ Append this block to the end of `src/main/config/constants.ts` (after the existi
 export const SIDECAR = {
   // The Swift capture sidecar binary, built from source by
   // scripts/setup-sidecar.sh and committed under resources/sidecar/.
-  binaryName: 'customcluely-sidecar',
+  binaryName: 'whisperglass-sidecar',
   // The Electron app's bundle id. Sent on the `start` command so the sidecar
   // can exclude the app's own overlay windows from screenshots.
-  appBundleId: 'com.customcluely.app',
+  appBundleId: 'com.whisperglass.app',
   // Capture sources requested on `start`, matching the protocol vocabulary.
   captureSources: ['systemAudio', 'mic'],
   // Supervisor restart backoff: 1 s, 2 s, 4 s, 8 s, then capped at 8 s.
@@ -691,14 +691,14 @@ describe('encodeSidecarCommand', () => {
     const line = encodeSidecarCommand({
       type: 'start',
       capture: ['systemAudio', 'mic'],
-      appBundleId: 'com.customcluely.app'
+      appBundleId: 'com.whisperglass.app'
     })
     expect(line.endsWith('\n')).toBe(true)
     expect(line.indexOf('\n')).toBe(line.length - 1)
     expect(JSON.parse(line)).toEqual({
       type: 'start',
       capture: ['systemAudio', 'mic'],
-      appBundleId: 'com.customcluely.app'
+      appBundleId: 'com.whisperglass.app'
     })
   })
 
@@ -932,13 +932,13 @@ describe('resolveSidecarPath', () => {
       resourcesRoot: '/app/resources',
       fileExists: () => true
     })
-    expect(result.binaryPath).toBe('/app/resources/sidecar/customcluely-sidecar')
+    expect(result.binaryPath).toBe('/app/resources/sidecar/whisperglass-sidecar')
   })
 
   it('reports the binary present when the file exists', () => {
     const result = resolveSidecarPath({
       resourcesRoot: '/app/resources',
-      fileExists: (p) => p === '/app/resources/sidecar/customcluely-sidecar'
+      fileExists: (p) => p === '/app/resources/sidecar/whisperglass-sidecar'
     })
     expect(result.binaryPresent).toBe(true)
   })
@@ -1009,18 +1009,18 @@ git commit -m "feat: add sidecar binary path resolver"
 This task builds the Swift glue and capture units. They need real audio and screen hardware, so they have no XCTest coverage (the pure codec is covered in Task 1); they are verified by the Phase 4 manual checklist (Task 12). Every file's complete code is shown. The verification gate for this task is that the package builds in release mode.
 
 **Files:**
-- Create: `sidecar/Sources/customcluely-sidecar/StdioTransport.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/AudioResampler.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/SystemAudioCapture.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/MicrophoneCapture.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/ScreenCapture.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/Permissions.swift`
-- Create: `sidecar/Sources/customcluely-sidecar/CaptureCoordinator.swift`
-- Modify: `sidecar/Sources/customcluely-sidecar/main.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/StdioTransport.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/AudioResampler.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/SystemAudioCapture.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/MicrophoneCapture.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/ScreenCapture.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/Permissions.swift`
+- Create: `sidecar/Sources/whisperglass-sidecar/CaptureCoordinator.swift`
+- Modify: `sidecar/Sources/whisperglass-sidecar/main.swift`
 
 - [ ] **Step 1: Create the stdio transport**
 
-Create `sidecar/Sources/customcluely-sidecar/StdioTransport.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/StdioTransport.swift`:
 
 ```swift
 import Foundation
@@ -1070,7 +1070,7 @@ final class StdioTransport {
 
 - [ ] **Step 2: Create the audio resampler**
 
-Create `sidecar/Sources/customcluely-sidecar/AudioResampler.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/AudioResampler.swift`:
 
 ```swift
 import Foundation
@@ -1141,7 +1141,7 @@ final class AudioResampler {
 
 - [ ] **Step 3: Create the permissions checker**
 
-Create `sidecar/Sources/customcluely-sidecar/Permissions.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/Permissions.swift`:
 
 ```swift
 import Foundation
@@ -1180,7 +1180,7 @@ enum Permissions {
 
 - [ ] **Step 4: Create the system audio capture**
 
-Create `sidecar/Sources/customcluely-sidecar/SystemAudioCapture.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/SystemAudioCapture.swift`:
 
 ```swift
 import Foundation
@@ -1306,7 +1306,7 @@ private extension CMSampleBuffer {
 
 - [ ] **Step 5: Create the microphone capture**
 
-Create `sidecar/Sources/customcluely-sidecar/MicrophoneCapture.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/MicrophoneCapture.swift`:
 
 ```swift
 import Foundation
@@ -1365,7 +1365,7 @@ final class MicrophoneCapture {
 
 - [ ] **Step 6: Create the screenshot capture**
 
-Create `sidecar/Sources/customcluely-sidecar/ScreenCapture.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/ScreenCapture.swift`:
 
 ```swift
 import Foundation
@@ -1415,7 +1415,7 @@ enum ScreenCapture {
 
 - [ ] **Step 7: Create the capture coordinator**
 
-Create `sidecar/Sources/customcluely-sidecar/CaptureCoordinator.swift`:
+Create `sidecar/Sources/whisperglass-sidecar/CaptureCoordinator.swift`:
 
 ```swift
 import Foundation
@@ -1542,12 +1542,12 @@ final class CaptureCoordinator {
 
 - [ ] **Step 8: Replace the executable entry point with the real main loop**
 
-Replace the entire contents of `sidecar/Sources/customcluely-sidecar/main.swift` with:
+Replace the entire contents of `sidecar/Sources/whisperglass-sidecar/main.swift` with:
 
 ```swift
 import Foundation
 
-// Entry point for the Customcluely capture sidecar. It reads newline-delimited
+// Entry point for the Whisperglass capture sidecar. It reads newline-delimited
 // JSON commands from stdin, drives the capture units through CaptureCoordinator,
 // and writes newline-delimited JSON events to stdout. The stdin read loop runs
 // on a dedicated thread; the main run loop stays alive so async capture
@@ -1575,7 +1575,7 @@ RunLoop.main.run()
 - [ ] **Step 9: Build the package in release mode to verify it compiles**
 
 Run: `swift build -c release --package-path sidecar`
-Expected: PASS, the build succeeds and produces `sidecar/.build/release/customcluely-sidecar`. Confirm with `test -x sidecar/.build/release/customcluely-sidecar && echo OK`, expected output `OK`.
+Expected: PASS, the build succeeds and produces `sidecar/.build/release/whisperglass-sidecar`. Confirm with `test -x sidecar/.build/release/whisperglass-sidecar && echo OK`, expected output `OK`.
 
 - [ ] **Step 10: Run the Swift tests to confirm the codec still passes**
 
@@ -1585,7 +1585,7 @@ Expected: PASS, the 13 `StdioProtocolTests` cases still green (the capture files
 - [ ] **Step 11: Commit**
 
 ```bash
-git add sidecar/Sources/customcluely-sidecar
+git add sidecar/Sources/whisperglass-sidecar
 git commit -m "feat: add Swift capture units, resampler, and stdio main loop"
 ```
 
@@ -1596,7 +1596,7 @@ git commit -m "feat: add Swift capture units, resampler, and stdio main loop"
 **Files:**
 - Create: `scripts/setup-sidecar.sh`
 - Create: `resources/sidecar/.gitkeep`
-- Create: `resources/sidecar/customcluely-sidecar` (produced by the script)
+- Create: `resources/sidecar/whisperglass-sidecar` (produced by the script)
 
 - [ ] **Step 1: Create the build script**
 
@@ -1604,7 +1604,7 @@ Create `scripts/setup-sidecar.sh`:
 
 ```bash
 #!/usr/bin/env bash
-# Builds the Customcluely Swift capture sidecar in release mode and installs
+# Builds the Whisperglass Swift capture sidecar in release mode and installs
 # the binary into resources/sidecar/. Run once at dev time on macOS arm64.
 # Mirrors scripts/setup-whisper.sh: a dev-time native build that commits its
 # product so the app runs without a build step.
@@ -1614,19 +1614,19 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SIDECAR_DIR="${REPO_ROOT}/sidecar"
 DEST_DIR="${REPO_ROOT}/resources/sidecar"
 
-echo "Building customcluely-sidecar (release)"
+echo "Building whisperglass-sidecar (release)"
 swift build -c release --package-path "${SIDECAR_DIR}"
 
-BUILT_BINARY="${SIDECAR_DIR}/.build/release/customcluely-sidecar"
+BUILT_BINARY="${SIDECAR_DIR}/.build/release/whisperglass-sidecar"
 if [ ! -x "${BUILT_BINARY}" ]; then
   echo "Build did not produce ${BUILT_BINARY}" >&2
   exit 1
 fi
 
 mkdir -p "${DEST_DIR}"
-cp "${BUILT_BINARY}" "${DEST_DIR}/customcluely-sidecar"
-chmod +x "${DEST_DIR}/customcluely-sidecar"
-echo "Installed customcluely-sidecar to ${DEST_DIR}/customcluely-sidecar"
+cp "${BUILT_BINARY}" "${DEST_DIR}/whisperglass-sidecar"
+chmod +x "${DEST_DIR}/whisperglass-sidecar"
+echo "Installed whisperglass-sidecar to ${DEST_DIR}/whisperglass-sidecar"
 ```
 
 - [ ] **Step 2: Create the resources placeholder and make the script executable**
@@ -1640,12 +1640,12 @@ chmod +x scripts/setup-sidecar.sh
 - [ ] **Step 3: Build the sidecar binary**
 
 Run: `bash scripts/setup-sidecar.sh`
-Expected: the script builds and prints `Installed customcluely-sidecar to .../resources/sidecar/customcluely-sidecar`. Confirm with `test -x resources/sidecar/customcluely-sidecar && echo OK`, expected output `OK`.
+Expected: the script builds and prints `Installed whisperglass-sidecar to .../resources/sidecar/whisperglass-sidecar`. Confirm with `test -x resources/sidecar/whisperglass-sidecar && echo OK`, expected output `OK`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add scripts/setup-sidecar.sh resources/sidecar/.gitkeep resources/sidecar/customcluely-sidecar
+git add scripts/setup-sidecar.sh resources/sidecar/.gitkeep resources/sidecar/whisperglass-sidecar
 git commit -m "feat: add sidecar build script and bundled binary"
 ```
 
@@ -2074,7 +2074,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -2094,7 +2094,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -2114,7 +2114,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -2136,7 +2136,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar-crash.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -2158,7 +2158,7 @@ describe('createSidecarSupervisor', () => {
     const supervisor = createSidecarSupervisor({
       command: 'node',
       prefixArgs: [join(FIXTURES, 'mock-sidecar.mjs')],
-      appBundleId: 'com.customcluely.app',
+      appBundleId: 'com.whisperglass.app',
       baseBackoffMs: 10,
       maxBackoffMs: 40,
       stableUptimeMs: 10_000,
@@ -2776,7 +2776,7 @@ beforeEach(() => {
   sidecarCb = () => {}
   started = 0
   stopped = 0
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn(),
@@ -2914,16 +2914,16 @@ export function useTranscript(): UseTranscript {
   const [audioPaused, setAudioPaused] = useState(false)
 
   useEffect(() => {
-    const offUpdate = window.customcluely.onTranscriptUpdate(
+    const offUpdate = window.whisperglass.onTranscriptUpdate(
       (update: TranscriptUpdatePayload) => setSegments(update.segments)
     )
-    const offStatus = window.customcluely.onTranscriptionStatus(
+    const offStatus = window.whisperglass.onTranscriptionStatus(
       (status: TranscriptionStatusPayload) => {
         setReady(status.ready)
         setStatusDetail(status.detail)
       }
     )
-    const offSidecar = window.customcluely.onSidecarStatus(
+    const offSidecar = window.whisperglass.onSidecarStatus(
       (status: SidecarStatusPayload) => {
         setAudioPaused(status.state === 'paused')
       }
@@ -2937,12 +2937,12 @@ export function useTranscript(): UseTranscript {
 
   const startListening = useCallback(() => {
     setListening(true)
-    window.customcluely.startTranscription()
+    window.whisperglass.startTranscription()
   }, [])
 
   const stopListening = useCallback(() => {
     setListening(false)
-    window.customcluely.stopTranscription()
+    window.whisperglass.stopTranscription()
   }, [])
 
   return {
@@ -2985,7 +2985,7 @@ git commit -m "refactor: remove renderer getUserMedia capture path, drive sideca
 
 - [ ] **Step 1: Write the failing renderer test for the audio-paused banner**
 
-Replace the `App live transcript wiring` describe block in `tests/renderer/App.test.tsx` with the block below. Keep all other existing imports and cases. Every App test block that builds its own `window.customcluely` mock must be updated to the Phase 4 bridge surface (the methods used below); update those mocks in this step so only the intended assertions can fail.
+Replace the `App live transcript wiring` describe block in `tests/renderer/App.test.tsx` with the block below. Keep all other existing imports and cases. Every App test block that builds its own `window.whisperglass` mock must be updated to the Phase 4 bridge surface (the methods used below); update those mocks in this step so only the intended assertions can fail.
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -3000,7 +3000,7 @@ describe('App live transcript and sidecar wiring', () => {
   beforeEach(() => {
     updateCb = () => {}
     sidecarCb = () => {}
-    window.customcluely = {
+    window.whisperglass = {
       toggleInvisibility: vi.fn(),
       onOverlayState: vi.fn(() => () => {}),
       askQuestion: vi.fn(),
@@ -3032,7 +3032,7 @@ describe('App live transcript and sidecar wiring', () => {
   it('renders a Start listening control and does not auto-start listening', () => {
     render(<App />)
     expect(screen.getByRole('button', { name: 'Listening: off' })).toBeInTheDocument()
-    expect(window.customcluely.startTranscription).not.toHaveBeenCalled()
+    expect(window.whisperglass.startTranscription).not.toHaveBeenCalled()
   })
 
   it('shows an audio-paused banner when the sidecar reports a paused state', () => {
@@ -3078,10 +3078,10 @@ export function App(): React.JSX.Element {
   const { segments, listening, audioPaused, startListening, stopListening } = useTranscript()
 
   useEffect(() => {
-    const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
+    const offState = window.whisperglass.onOverlayState((overlay: OverlayState) => {
       setInvisible(overlay.invisible)
     })
-    const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
+    const offStatus = window.whisperglass.onCodexStatus((status: CodexStatus) => {
       setSetupMessage(status.available && status.authenticated ? null : status.detail)
     })
     return () => {
@@ -3104,7 +3104,7 @@ export function App(): React.JSX.Element {
           listening={listening}
           onToggle={() => (listening ? stopListening() : startListening())}
         />
-        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
+        <EyeToggle invisible={invisible} onToggle={() => window.whisperglass.toggleInvisibility()} />
       </div>
       {state.question.length > 0 && <p className="app__active-question">{state.question}</p>}
       <AnswerPanel answer={state.text} status={state.status} error={state.error} onRetry={retry} />
@@ -3303,7 +3303,7 @@ app.whenReady().then(() => {
             : 'Microphone'
         emitToOverlay(IpcChannel.SidecarStatus, {
           state: 'error',
-          detail: `${pane} permission is denied. Grant it to Customcluely in System Settings > Privacy & Security > ${pane}.`
+          detail: `${pane} permission is denied. Grant it to Whisperglass in System Settings > Privacy & Security > ${pane}.`
         })
       }
     }
@@ -3432,13 +3432,13 @@ Run each command from the repository root. All must pass.
 | # | Command | Expected |
 |---|---------|----------|
 | 1 | `swift test --package-path sidecar` | All StdioProtocolTests cases pass. |
-| 2 | `swift build -c release --package-path sidecar` | Release build succeeds, produces `sidecar/.build/release/customcluely-sidecar`. |
+| 2 | `swift build -c release --package-path sidecar` | Release build succeeds, produces `sidecar/.build/release/whisperglass-sidecar`. |
 | 3 | `npm run test` | All test files pass, including every `tests/main/sidecar/*`, the updated `tests/main/transcription/transcription-service.test.ts`, the updated `tests/main/ipc/ipc-handlers.test.ts`, `tests/preload/api.test.ts`, `tests/renderer/hooks/useTranscript.test.ts`, and `tests/renderer/App.test.tsx`. |
 | 4 | `npm run typecheck` | No type errors in node or web projects. |
 | 5 | `npm run lint` | No lint errors. |
 | 6 | `npm run build` | electron-vite build succeeds. |
-| 7 | `test -x resources/sidecar/customcluely-sidecar && echo OK` | Prints `OK` (the bundled sidecar binary exists and is executable). |
-| 8 | `git ls-files resources/sidecar` | Lists `resources/sidecar/.gitkeep` and `resources/sidecar/customcluely-sidecar`. |
+| 7 | `test -x resources/sidecar/whisperglass-sidecar && echo OK` | Prints `OK` (the bundled sidecar binary exists and is executable). |
+| 8 | `git ls-files resources/sidecar` | Lists `resources/sidecar/.gitkeep` and `resources/sidecar/whisperglass-sidecar`. |
 | 9 | `git ls-files src/renderer/src/audio` | Prints nothing (the Phase 3 getUserMedia stopgap is fully removed). |
 
 ## T4.x roadmap coverage
@@ -3461,7 +3461,7 @@ bundle does not appear by name in System Settings to Screen Recording, even
 though it still receives and honors the permission once granted. The sidecar
 runs as a child process of the Electron `.app`, so the Screen Recording and
 Microphone permissions attach to the parent app's code-signing identity, and
-"Customcluely" (the Electron app) is what the user grants. v1 does not build a
+"Whisperglass" (the Electron app) is what the user grants. v1 does not build a
 separate notarized helper bundle (out of scope). The manual checklist below
 includes the one-time grant step. Ad-hoc rebuilds of the Swift binary alone do
 not change the parent app identity, so the grant persists across sidecar
@@ -3472,16 +3472,16 @@ rebuilds.
 Perform these on macOS arm64 with a working microphone and a second app that
 plays audio (a video, a call, a music app).
 
-- [ ] Run `bash scripts/setup-sidecar.sh` once; confirm `resources/sidecar/customcluely-sidecar` exists and is executable.
+- [ ] Run `bash scripts/setup-sidecar.sh` once; confirm `resources/sidecar/whisperglass-sidecar` exists and is executable.
 - [ ] Run `npm run dev`. On first launch, click "Start listening".
-- [ ] Grant the macOS Microphone permission prompt when it appears (granted to "Customcluely").
-- [ ] Grant the macOS Screen Recording permission when prompted; if no prompt appears, open System Settings > Privacy & Security > Screen Recording, enable "Customcluely", and restart the app.
+- [ ] Grant the macOS Microphone permission prompt when it appears (granted to "Whisperglass").
+- [ ] Grant the macOS Screen Recording permission when prompted; if no prompt appears, open System Settings > Privacy & Security > Screen Recording, enable "Whisperglass", and restart the app.
 - [ ] Confirm the overlay does not show the "audio paused" banner while the sidecar is running.
 - [ ] Speak into the microphone for at least 15 seconds; confirm transcript lines appear labelled with the `you` speaker.
 - [ ] Play audio from the second app (a video or a call) for at least 15 seconds; confirm transcript lines appear labelled with the `them` speaker. This is the Phase 4 acceptance check for system-audio capture.
-- [ ] Trigger a screenshot (via the Phase 5 screenshot path or a temporary dev hook that calls `requestScreenshot`); confirm a screenshot is delivered and that it does NOT contain the Customcluely overlay window.
-- [ ] Find the sidecar process (`pgrep customcluely-sidecar`) and kill it (`kill -9 <pid>`); confirm the overlay shows the "audio paused" banner, then confirm it clears within ~8 seconds as the supervisor restarts the sidecar and capture resumes.
-- [ ] Quit the app; confirm the sidecar process is no longer running (`pgrep customcluely-sidecar` prints nothing).
+- [ ] Trigger a screenshot (via the Phase 5 screenshot path or a temporary dev hook that calls `requestScreenshot`); confirm a screenshot is delivered and that it does NOT contain the Whisperglass overlay window.
+- [ ] Find the sidecar process (`pgrep whisperglass-sidecar`) and kill it (`kill -9 <pid>`); confirm the overlay shows the "audio paused" banner, then confirm it clears within ~8 seconds as the supervisor restarts the sidecar and capture resumes.
+- [ ] Quit the app; confirm the sidecar process is no longer running (`pgrep whisperglass-sidecar` prints nothing).
 - [ ] **No-network check:** with the model already downloaded, run `nettop -p <electron pid>` while capturing; confirm capture and transcription produce no outbound network traffic (Phase 4 introduces no network calls).
 - [ ] Deny the Microphone or Screen Recording permission in System Settings, restart the app, click "Start listening", and confirm a banner appears that names the permission and points to the correct System Settings pane.
 
@@ -3512,7 +3512,7 @@ This plan has **14 tasks**.
 
 **1. Spec and roadmap coverage.** Every Phase 4 roadmap item (T4.1 to T4.8) maps to at least one task:
 
-- **T4.1 Swift package scaffold and StdioProtocol codec:** Task 1 scaffolds `sidecar/Package.swift` (`.macOS(.v14)`, the `SidecarCore` library target, the `customcluely-sidecar` executable target, the `SidecarCoreTests` test target) and implements the pure, unit-tested `StdioProtocol` codec with 13 XCTest cases. Task 7 adds the build script and the committed binary.
+- **T4.1 Swift package scaffold and StdioProtocol codec:** Task 1 scaffolds `sidecar/Package.swift` (`.macOS(.v14)`, the `SidecarCore` library target, the `whisperglass-sidecar` executable target, the `SidecarCoreTests` test target) and implements the pure, unit-tested `StdioProtocol` codec with 13 XCTest cases. Task 7 adds the build script and the committed binary.
 - **T4.2 System audio capture:** Task 6 implements `SystemAudioCapture.swift` with a ScreenCaptureKit `SCStream`, `SCStreamConfiguration.capturesAudio = true`, `SCContentFilter(display:excludingWindows:)`, and `AudioResampler` normalization to 16 kHz mono 16-bit PCM.
 - **T4.3 Microphone capture in the sidecar:** Task 6 implements `MicrophoneCapture.swift` with an `AVAudioEngine` input-node tap and the same `AudioResampler`.
 - **T4.4 Screenshot capture excluding the overlay:** Task 6 implements `ScreenCapture.swift` with `SCScreenshotManager.captureImage`, using the same `excludingWindows` filter built from the app bundle id, and PNG encoding.
@@ -3541,6 +3541,6 @@ The stdio protocol from spec section 11 is implemented exactly: main-to-sidecar 
 - `IpcHandlerDeps` (Task 10) drops `onAudioFrame`, keeps `onToggleInvisibility`, `onAskQuestion`, `onStartTranscription`, `onStopTranscription`; `index.ts` (Task 13) supplies exactly those four; the test asserts exactly four registrations.
 - `OverlayApi` (Task 11) drops `sendAudioFrame`, adds `onSidecarStatus`/`onScreenshot`; `useTranscript.ts` (Task 12) uses `onSidecarStatus`, and the Task 12 and Task 13 test bridge mocks supply the full Phase 4 surface (`onSidecarStatus`, `onScreenshot`, no `sendAudioFrame`).
 - `useTranscript` returns `{ segments, ready, statusDetail, listening, audioPaused, startListening, stopListening }` (Task 12); `App.tsx` (Task 13) destructures `{ segments, listening, audioPaused, startListening, stopListening }`, a consistent subset.
-- The app bundle id is one value, `com.customcluely.app`, used identically in `SIDECAR.appBundleId` (Task 2), the Swift exclusion match (Task 6, passed via the `start` command), the supervisor test fixtures (Task 9), and `electronApp.setAppUserModelId(SIDECAR.appBundleId)` (Task 13).
+- The app bundle id is one value, `com.whisperglass.app`, used identically in `SIDECAR.appBundleId` (Task 2), the Swift exclusion match (Task 6, passed via the `start` command), the supervisor test fixtures (Task 9), and `electronApp.setAppUserModelId(SIDECAR.appBundleId)` (Task 13).
 
 No inconsistencies found. The plan is internally consistent across all 14 tasks and across the Swift and TypeScript sides of the protocol, and is ready for execution.

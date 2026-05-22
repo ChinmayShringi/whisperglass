@@ -59,8 +59,8 @@ describe('Phase 4 IpcChannel entries', () => {
 
 describe('SIDECAR constants', () => {
   it('pins the binary name, app bundle id, and supervisor timings', () => {
-    expect(SIDECAR.binaryName).toBe('customcluely-sidecar')
-    expect(SIDECAR.appBundleId).toBe('com.customcluely.app')
+    expect(SIDECAR.binaryName).toBe('whisperglass-sidecar')
+    expect(SIDECAR.appBundleId).toBe('com.whisperglass.app')
     expect(SIDECAR.stableUptimeMs).toBe(10_000)
     expect(SIDECAR.maxBackoffMs).toBe(8_000)
     expect(SIDECAR.baseBackoffMs).toBe(1_000)

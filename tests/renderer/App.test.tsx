@@ -17,7 +17,7 @@ beforeEach(() => {
   requestScreenshot = vi.fn()
   startTranscription = vi.fn()
   transcriptUpdateCb = () => {}
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion,

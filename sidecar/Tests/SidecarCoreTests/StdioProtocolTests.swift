@@ -6,11 +6,11 @@ final class StdioProtocolTests: XCTestCase {
     // MARK: decoding commands
 
     func testDecodesStartCommand() {
-        let line = #"{"type":"start","capture":["systemAudio","mic"],"appBundleId":"com.customcluely.app"}"#
+        let line = #"{"type":"start","capture":["systemAudio","mic"],"appBundleId":"com.whisperglass.app"}"#
         let command = StdioProtocol.decodeCommand(line)
         XCTAssertEqual(
             command,
-            .start(capture: ["systemAudio", "mic"], appBundleId: "com.customcluely.app")
+            .start(capture: ["systemAudio", "mic"], appBundleId: "com.whisperglass.app")
         )
     }
 

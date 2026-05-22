@@ -2218,10 +2218,10 @@ Create `src/renderer/src/audio/pcm-worklet.ts`:
 // source is exported as a string and registered via a Blob URL by mic-capture.
 // The processor forwards every 128-sample render quantum of channel 0 to the
 // main thread as a Float32Array; mic-capture downsamples and batches it.
-export const PCM_WORKLET_NAME = 'customcluely-pcm-worklet'
+export const PCM_WORKLET_NAME = 'whisperglass-pcm-worklet'
 
 export const PCM_WORKLET_SOURCE = `
-class CustomcluelyPcmWorklet extends AudioWorkletProcessor {
+class WhisperglassPcmWorklet extends AudioWorkletProcessor {
   process(inputs) {
     const input = inputs[0]
     if (input && input[0]) {
@@ -2230,7 +2230,7 @@ class CustomcluelyPcmWorklet extends AudioWorkletProcessor {
     return true
   }
 }
-registerProcessor('${PCM_WORKLET_NAME}', CustomcluelyPcmWorklet)
+registerProcessor('${PCM_WORKLET_NAME}', WhisperglassPcmWorklet)
 `
 ```
 
@@ -2371,7 +2371,7 @@ beforeEach(() => {
   stopped = 0
   getUserMediaCalls = 0
   trackStops = 0
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn(),
@@ -2526,10 +2526,10 @@ export function useTranscript(): UseTranscript {
   const captureRef = useRef<MicCaptureHandle | null>(null)
 
   useEffect(() => {
-    const offUpdate = window.customcluely.onTranscriptUpdate(
+    const offUpdate = window.whisperglass.onTranscriptUpdate(
       (update: TranscriptUpdatePayload) => setSegments(update.segments)
     )
-    const offStatus = window.customcluely.onTranscriptionStatus(
+    const offStatus = window.whisperglass.onTranscriptionStatus(
       (status: TranscriptionStatusPayload) => {
         setReady(status.ready)
         setStatusDetail(status.detail)
@@ -2547,9 +2547,9 @@ export function useTranscript(): UseTranscript {
     if (captureRef.current) return
     setListening(true)
     // Tell main to reset its rolling audio state for a fresh session.
-    window.customcluely.startTranscription()
+    window.whisperglass.startTranscription()
     void startCapture({
-      onFrame: (pcmBase64) => window.customcluely.sendAudioFrame({ pcmBase64 }),
+      onFrame: (pcmBase64) => window.whisperglass.sendAudioFrame({ pcmBase64 }),
       onError: (message) => {
         setStatusDetail(message)
         setListening(false)
@@ -2561,7 +2561,7 @@ export function useTranscript(): UseTranscript {
 
   const stopListening = useCallback(() => {
     setListening(false)
-    window.customcluely.stopTranscription()
+    window.whisperglass.stopTranscription()
     void captureRef.current?.stopCapture()
     captureRef.current = null
   }, [])
@@ -2687,7 +2687,7 @@ git commit -m "feat: add ListenToggle component for explicit mic control"
 
 - [ ] **Step 1: Add a failing renderer test for the live transcript wiring**
 
-Append this `describe` block to `tests/renderer/App.test.tsx` (keep all existing imports and cases). It mocks the full `window.customcluely` bridge and asserts the App renders a transcript segment delivered through `onTranscriptUpdate` and shows the `ListenToggle` button:
+Append this `describe` block to `tests/renderer/App.test.tsx` (keep all existing imports and cases). It mocks the full `window.whisperglass` bridge and asserts the App renders a transcript segment delivered through `onTranscriptUpdate` and shows the `ListenToggle` button:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -2700,7 +2700,7 @@ describe('App live transcript wiring', () => {
 
   beforeEach(() => {
     updateCb = () => {}
-    window.customcluely = {
+    window.whisperglass = {
       toggleInvisibility: vi.fn(),
       onOverlayState: vi.fn(() => () => {}),
       askQuestion: vi.fn(),
@@ -2728,7 +2728,7 @@ describe('App live transcript wiring', () => {
   it('renders a Start listening control and does not auto-start listening', () => {
     render(<App />)
     expect(screen.getByRole('button', { name: 'Listening: off' })).toBeInTheDocument()
-    expect(window.customcluely.startTranscription).not.toHaveBeenCalled()
+    expect(window.whisperglass.startTranscription).not.toHaveBeenCalled()
   })
 })
 ```
@@ -2736,7 +2736,7 @@ describe('App live transcript wiring', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm run test -- tests/renderer/App.test.tsx`
-Expected: FAIL: the App still uses static empty `segments` state, so `getByText('live transcript line')` throws a not-found error, and there is no `Listening: off` button. Existing App tests may also fail because `window.customcluely` now needs the new methods; the rewritten `beforeEach` above supplies them, but if other App test blocks build their own bridge mock they must be updated to include the five new methods. Update those mocks in this step so only the intended assertions fail.
+Expected: FAIL: the App still uses static empty `segments` state, so `getByText('live transcript line')` throws a not-found error, and there is no `Listening: off` button. Existing App tests may also fail because `window.whisperglass` now needs the new methods; the rewritten `beforeEach` above supplies them, but if other App test blocks build their own bridge mock they must be updated to include the five new methods. Update those mocks in this step so only the intended assertions fail.
 
 - [ ] **Step 3: Update `src/renderer/src/App.tsx` to use the hook and the ListenToggle**
 
@@ -2762,10 +2762,10 @@ export function App(): React.JSX.Element {
   const { segments, listening, startListening, stopListening } = useTranscript()
 
   useEffect(() => {
-    const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
+    const offState = window.whisperglass.onOverlayState((overlay: OverlayState) => {
       setInvisible(overlay.invisible)
     })
-    const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
+    const offStatus = window.whisperglass.onCodexStatus((status: CodexStatus) => {
       setSetupMessage(status.available && status.authenticated ? null : status.detail)
     })
     return () => {
@@ -2783,7 +2783,7 @@ export function App(): React.JSX.Element {
           listening={listening}
           onToggle={() => (listening ? stopListening() : startListening())}
         />
-        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
+        <EyeToggle invisible={invisible} onToggle={() => window.whisperglass.toggleInvisibility()} />
       </div>
       {state.question.length > 0 && <p className="app__active-question">{state.question}</p>}
       <AnswerPanel answer={state.text} status={state.status} error={state.error} onRetry={retry} />
@@ -2973,7 +2973,7 @@ function writeModelStream(path: string, chunks: Buffer[]): Promise<void> {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.customcluely.app')
+  electronApp.setAppUserModelId('com.whisperglass.app')
   app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win))
 
   const codexPath = resolveCodexPath({ fileExists: existsSync, runWhich })

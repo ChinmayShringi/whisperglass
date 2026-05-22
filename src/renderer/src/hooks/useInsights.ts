@@ -12,7 +12,7 @@ export interface UseInsights {
 
 // Runs the pure rule-based insight detector over the live transcript while a
 // session is active. When the session is inactive it returns no insights, so
-// the overlay surfaces insights only during a meeting (matching Cluely's
+// the overlay surfaces insights only during a meeting (using a
 // session-scoped model). The detection itself is deterministic and memoized
 // on the segments and the active flag.
 export function useInsights(segments: TranscriptSegment[], active: boolean): UseInsights {

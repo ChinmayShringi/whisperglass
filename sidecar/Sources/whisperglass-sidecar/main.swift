@@ -1,6 +1,6 @@
 import Foundation
 
-// Entry point for the Customcluely capture sidecar. It reads newline-delimited
+// Entry point for the Whisperglass capture sidecar. It reads newline-delimited
 // JSON commands from stdin, drives the capture units through CaptureCoordinator,
 // and writes newline-delimited JSON events to stdout. The stdin read loop runs
 // on a dedicated thread; the main run loop stays alive so async capture

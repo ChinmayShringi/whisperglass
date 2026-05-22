@@ -17,7 +17,7 @@ These exist and must not be broken. New code extends them.
 - `src/shared/types.ts` - `IpcChannel` const object (`ToggleInvisibility`, `OverlayState`), `HotkeyAction`, `OverlayState`, `TranscriptSegment`.
 - `src/main/ipc/ipc-handlers.ts` - `registerIpcHandlers(ipcMain, deps)` with `IpcMainLike`, `IpcHandlerDeps { onToggleInvisibility }`.
 - `src/preload/api.ts` - `createOverlayApi(ipcRenderer)` returning `OverlayApi { toggleInvisibility, onOverlayState }`; has a private `subscribe<T>()` helper.
-- `src/preload/index.d.ts` - declares `Window.customcluely: OverlayApi`.
+- `src/preload/index.d.ts` - declares `Window.whisperglass: OverlayApi`.
 - `src/renderer/src/components/CommandBar.tsx` - props `{ onSubmit: (question: string) => void; disabled?: boolean }`.
 - `src/renderer/src/components/AnswerPanel.tsx` - prop `{ answer: string }`.
 - `src/renderer/src/App.tsx` - holds `activeQuestion` state, renders `CommandBar`, `AnswerPanel answer=""`, `SetupBanner message={null}`.
@@ -1447,7 +1447,7 @@ let lastRequest: { requestId: string; question: string } | null = null
 
 beforeEach(() => {
   lastRequest = null
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn((req) => {
@@ -1563,15 +1563,15 @@ export function useCodexAnswer(): UseCodexAnswer {
   const lastQuestionRef = useRef('')
 
   useEffect(() => {
-    const offChunk = window.customcluely.onAnswerChunk((chunk: AnswerChunk) => {
+    const offChunk = window.whisperglass.onAnswerChunk((chunk: AnswerChunk) => {
       if (chunk.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'streaming', text: s.text + chunk.delta }))
     })
-    const offDone = window.customcluely.onAnswerDone((result: AnswerResult) => {
+    const offDone = window.whisperglass.onAnswerDone((result: AnswerResult) => {
       if (result.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'done', text: result.text }))
     })
-    const offError = window.customcluely.onAnswerError((error: AnswerError) => {
+    const offError = window.whisperglass.onAnswerError((error: AnswerError) => {
       if (error.requestId !== requestIdRef.current) return
       setState((s) => ({ ...s, status: 'error', error: error.message }))
     })
@@ -1589,7 +1589,7 @@ export function useCodexAnswer(): UseCodexAnswer {
     requestIdRef.current = requestId
     lastQuestionRef.current = trimmed
     setState({ status: 'streaming', question: trimmed, text: '', error: '' })
-    window.customcluely.askQuestion({ requestId, question: trimmed })
+    window.whisperglass.askQuestion({ requestId, question: trimmed })
   }, [])
 
   const retry = useCallback(() => {
@@ -1723,7 +1723,7 @@ let askQuestion: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   askQuestion = vi.fn()
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion,
@@ -1753,9 +1753,9 @@ describe('App', () => {
 
   it('subscribes to overlay state, answer events, and Codex status', () => {
     render(<App />)
-    expect(window.customcluely.onOverlayState).toHaveBeenCalled()
-    expect(window.customcluely.onAnswerChunk).toHaveBeenCalled()
-    expect(window.customcluely.onCodexStatus).toHaveBeenCalled()
+    expect(window.whisperglass.onOverlayState).toHaveBeenCalled()
+    expect(window.whisperglass.onAnswerChunk).toHaveBeenCalled()
+    expect(window.whisperglass.onCodexStatus).toHaveBeenCalled()
   })
 })
 ```
@@ -1787,10 +1787,10 @@ export function App(): React.JSX.Element {
   const { state, ask, retry } = useCodexAnswer()
 
   useEffect(() => {
-    const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
+    const offState = window.whisperglass.onOverlayState((overlay: OverlayState) => {
       setInvisible(overlay.invisible)
     })
-    const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
+    const offStatus = window.whisperglass.onCodexStatus((status: CodexStatus) => {
       setSetupMessage(status.available && status.authenticated ? null : status.detail)
     })
     return () => {
@@ -1804,7 +1804,7 @@ export function App(): React.JSX.Element {
       <SetupBanner message={setupMessage} />
       <div className="app__bar">
         <CommandBar onSubmit={ask} disabled={state.status === 'streaming'} />
-        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
+        <EyeToggle invisible={invisible} onToggle={() => window.whisperglass.toggleInvisibility()} />
       </div>
       {state.question.length > 0 && <p className="app__active-question">{state.question}</p>}
       <AnswerPanel answer={state.text} status={state.status} error={state.error} onRetry={retry} />

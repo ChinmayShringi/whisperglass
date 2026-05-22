@@ -13,7 +13,7 @@ let lastRequest: { requestId: string; question: string } | null = null
 
 beforeEach(() => {
   lastRequest = null
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn((req) => {
@@ -103,8 +103,8 @@ describe('useCodexAnswer.askContext', () => {
         extraArgs: ['--search']
       })
     )
-    expect(window.customcluely.askContextQuestion).toHaveBeenCalledOnce()
-    const sent = (window.customcluely.askContextQuestion as ReturnType<typeof vi.fn>).mock
+    expect(window.whisperglass.askContextQuestion).toHaveBeenCalledOnce()
+    const sent = (window.whisperglass.askContextQuestion as ReturnType<typeof vi.fn>).mock
       .calls[0][0]
     expect(sent.question).toBe('recap please')
     expect(sent.segments).toHaveLength(1)
@@ -122,6 +122,6 @@ describe('useCodexAnswer.askContext', () => {
   it('ignores an empty context question', () => {
     const { result } = renderHook(() => useCodexAnswer())
     act(() => result.current.askContext('   ', [], { screenshot: false, extraArgs: [] }))
-    expect(window.customcluely.askContextQuestion).not.toHaveBeenCalled()
+    expect(window.whisperglass.askContextQuestion).not.toHaveBeenCalled()
   })
 })

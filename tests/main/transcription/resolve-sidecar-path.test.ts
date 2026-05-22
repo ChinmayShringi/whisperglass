@@ -7,13 +7,13 @@ describe('resolveSidecarPath', () => {
       resourcesRoot: '/app/resources',
       fileExists: () => true
     })
-    expect(result.binaryPath).toBe('/app/resources/sidecar/customcluely-sidecar')
+    expect(result.binaryPath).toBe('/app/resources/sidecar/whisperglass-sidecar')
   })
 
   it('reports the binary present when the file exists', () => {
     const result = resolveSidecarPath({
       resourcesRoot: '/app/resources',
-      fileExists: (p) => p === '/app/resources/sidecar/customcluely-sidecar'
+      fileExists: (p) => p === '/app/resources/sidecar/whisperglass-sidecar'
     })
     expect(result.binaryPresent).toBe(true)
   })

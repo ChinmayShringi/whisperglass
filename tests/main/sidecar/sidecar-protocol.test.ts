@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  parseSidecarLine,
-  encodeSidecarCommand
-} from '../../../src/main/sidecar/sidecar-protocol'
+import { parseSidecarLine, encodeSidecarCommand } from '../../../src/main/sidecar/sidecar-protocol'
 
 describe('parseSidecarLine', () => {
   it('parses an audio event', () => {
@@ -79,12 +76,24 @@ describe('parseSidecarLine', () => {
   })
 
   it('returns ignored for an audio event with a non-string pcm', () => {
-    const line = JSON.stringify({ type: 'audio', source: 'system', seq: 1, sampleRate: 16000, pcm: 42 })
+    const line = JSON.stringify({
+      type: 'audio',
+      source: 'system',
+      seq: 1,
+      sampleRate: 16000,
+      pcm: 42
+    })
     expect(parseSidecarLine(line)).toEqual({ kind: 'ignored' })
   })
 
   it('returns ignored for an audio event with an unknown source', () => {
-    const line = JSON.stringify({ type: 'audio', source: 'radio', seq: 1, sampleRate: 16000, pcm: 'AA' })
+    const line = JSON.stringify({
+      type: 'audio',
+      source: 'radio',
+      seq: 1,
+      sampleRate: 16000,
+      pcm: 'AA'
+    })
     expect(parseSidecarLine(line)).toEqual({ kind: 'ignored' })
   })
 
@@ -100,14 +109,14 @@ describe('encodeSidecarCommand', () => {
     const line = encodeSidecarCommand({
       type: 'start',
       capture: ['systemAudio', 'mic'],
-      appBundleId: 'com.customcluely.app'
+      appBundleId: 'com.whisperglass.app'
     })
     expect(line.endsWith('\n')).toBe(true)
     expect(line.indexOf('\n')).toBe(line.length - 1)
     expect(JSON.parse(line)).toEqual({
       type: 'start',
       capture: ['systemAudio', 'mic'],
-      appBundleId: 'com.customcluely.app'
+      appBundleId: 'com.whisperglass.app'
     })
   })
 

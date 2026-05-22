@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useSession } from '../../../src/renderer/src/hooks/useSession'
 
 beforeEach(() => {
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn(),
@@ -33,7 +33,7 @@ describe('useSession', () => {
     const { result } = renderHook(() => useSession())
     act(() => result.current.toggle())
     expect(result.current.active).toBe(true)
-    expect(window.customcluely.startTranscription).toHaveBeenCalledOnce()
+    expect(window.whisperglass.startTranscription).toHaveBeenCalledOnce()
   })
 
   it('toggling twice ends the session and stops transcription capture', () => {
@@ -41,7 +41,7 @@ describe('useSession', () => {
     act(() => result.current.toggle())
     act(() => result.current.toggle())
     expect(result.current.active).toBe(false)
-    expect(window.customcluely.stopTranscription).toHaveBeenCalledOnce()
+    expect(window.whisperglass.stopTranscription).toHaveBeenCalledOnce()
   })
 
   it('exposes the live transcript segments from the composed transcript hook', () => {

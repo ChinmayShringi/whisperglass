@@ -22,7 +22,7 @@ beforeEach(() => {
   sidecarCb = () => {}
   started = 0
   stopped = 0
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion: vi.fn(),

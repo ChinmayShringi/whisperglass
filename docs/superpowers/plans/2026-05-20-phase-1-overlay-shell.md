@@ -8,7 +8,7 @@
 
 **Tech Stack:** Electron, TypeScript, electron-vite, React, Vitest, @testing-library/react.
 
-**Spec:** `docs/superpowers/specs/2026-05-20-cluely-clone-design.md`
+**Spec:** `docs/superpowers/specs/2026-05-20-meeting-copilot-design.md`
 **Roadmap:** `docs/superpowers/plans/2026-05-20-roadmap.md`
 
 **Execution:** Each task below runs through the 3-agent pipeline (Implementer, Auditor, Documenter) defined in the roadmap. The task content is what the Implementer follows; the Auditor re-derives tests and audits against this plan and the spec; the Documenter commits.
@@ -48,7 +48,7 @@ Created or modified across the tasks:
 ## Task T1.1: Scaffold the project
 
 **Files:**
-- Create: the electron-vite project in `/Users/chinmay_shringi/Desktop/Customcluely`
+- Create: the electron-vite project in `/Users/chinmay_shringi/Desktop/Whisperglass`
 - Create: `vitest.config.ts`, `tests/setup.ts`, `tests/smoke.test.ts`
 
 This is a setup task, verified by a passing build and a passing smoke test rather than by TDD.
@@ -57,18 +57,18 @@ This is a setup task, verified by a passing build and a passing smoke test rathe
 
 Run:
 ```bash
-npm create @quick-start/electron@latest /tmp/customcluely-scaffold -- --template react-ts
+npm create @quick-start/electron@latest /tmp/whisperglass-scaffold -- --template react-ts
 ```
-If the tool prompts, accept defaults (no extra add-ons). Expected result: `/tmp/customcluely-scaffold` contains `electron.vite.config.ts`, `package.json`, `tsconfig*.json`, `electron-builder.yml`, and `src/main`, `src/preload`, `src/renderer`.
+If the tool prompts, accept defaults (no extra add-ons). Expected result: `/tmp/whisperglass-scaffold` contains `electron.vite.config.ts`, `package.json`, `tsconfig*.json`, `electron-builder.yml`, and `src/main`, `src/preload`, `src/renderer`.
 
 - [x] **Step 2: Move the scaffold into the project, preserving git and the spec**
 
 Run:
 ```bash
-rsync -a --exclude='.git' --exclude='.gitignore' /tmp/customcluely-scaffold/ /Users/chinmay_shringi/Desktop/Customcluely/
-cat /tmp/customcluely-scaffold/.gitignore >> /Users/chinmay_shringi/Desktop/Customcluely/.gitignore
-sort -u /Users/chinmay_shringi/Desktop/Customcluely/.gitignore -o /Users/chinmay_shringi/Desktop/Customcluely/.gitignore
-rm -rf /tmp/customcluely-scaffold
+rsync -a --exclude='.git' --exclude='.gitignore' /tmp/whisperglass-scaffold/ /Users/chinmay_shringi/Desktop/Whisperglass/
+cat /tmp/whisperglass-scaffold/.gitignore >> /Users/chinmay_shringi/Desktop/Whisperglass/.gitignore
+sort -u /Users/chinmay_shringi/Desktop/Whisperglass/.gitignore -o /Users/chinmay_shringi/Desktop/Whisperglass/.gitignore
+rm -rf /tmp/whisperglass-scaffold
 ```
 Expected: the project now has the scaffold files plus the pre-existing `docs/` and `.git/`.
 
@@ -76,7 +76,7 @@ Expected: the project now has the scaffold files plus the pre-existing `docs/` a
 
 Run:
 ```bash
-cd /Users/chinmay_shringi/Desktop/Customcluely && npm install
+cd /Users/chinmay_shringi/Desktop/Whisperglass && npm install
 npm install --save-dev vitest @vitejs/plugin-react @testing-library/react @testing-library/user-event @testing-library/jest-dom jsdom
 ```
 Expected: install completes with no error.
@@ -722,10 +722,10 @@ import { createOverlayApi } from './api'
 const api = createOverlayApi(ipcRenderer)
 
 if (process.contextIsolated) {
-  contextBridge.exposeInMainWorld('customcluely', api)
+  contextBridge.exposeInMainWorld('whisperglass', api)
 } else {
   // @ts-ignore fallback when context isolation is disabled
-  window.customcluely = api
+  window.whisperglass = api
 }
 ```
 
@@ -735,7 +735,7 @@ import type { OverlayApi } from './api'
 
 declare global {
   interface Window {
-    customcluely: OverlayApi
+    whisperglass: OverlayApi
   }
 }
 ```
@@ -1163,7 +1163,7 @@ import userEvent from '@testing-library/user-event'
 import { App } from '../../src/renderer/src/App'
 
 beforeEach(() => {
-  window.customcluely = {
+  window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
   }
@@ -1180,7 +1180,7 @@ describe('App', () => {
   it('calls the preload toggleInvisibility when the eye toggle is clicked', async () => {
     render(<App />)
     await userEvent.click(screen.getByRole('button', { name: 'Invisible: off' }))
-    expect(window.customcluely.toggleInvisibility).toHaveBeenCalledOnce()
+    expect(window.whisperglass.toggleInvisibility).toHaveBeenCalledOnce()
   })
 })
 ```
@@ -1209,7 +1209,7 @@ export function App(): JSX.Element {
   const [segments] = useState<TranscriptSegment[]>([])
 
   useEffect(() => {
-    const unsubscribe = window.customcluely.onOverlayState((state: OverlayState) => {
+    const unsubscribe = window.whisperglass.onOverlayState((state: OverlayState) => {
       setInvisible(state.invisible)
     })
     return unsubscribe
@@ -1220,7 +1220,7 @@ export function App(): JSX.Element {
       <SetupBanner message={null} />
       <div className="app__bar">
         <CommandBar onSubmit={setActiveQuestion} />
-        <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
+        <EyeToggle invisible={invisible} onToggle={() => window.whisperglass.toggleInvisibility()} />
       </div>
       {activeQuestion.length > 0 && (
         <p className="app__active-question">{activeQuestion}</p>
@@ -1451,7 +1451,7 @@ function handleHotkey(action: HotkeyAction): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.customcluely.app')
+  electronApp.setAppUserModelId('com.whisperglass.app')
   app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win))
 
   overlay = createOverlayWindow()

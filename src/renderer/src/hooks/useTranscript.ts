@@ -34,20 +34,18 @@ export function useTranscript(): UseTranscript {
   const [audioPaused, setAudioPaused] = useState(false)
 
   useEffect(() => {
-    const offUpdate = window.customcluely.onTranscriptUpdate(
-      (update: TranscriptUpdatePayload) => setSegments(update.segments)
+    const offUpdate = window.whisperglass.onTranscriptUpdate((update: TranscriptUpdatePayload) =>
+      setSegments(update.segments)
     )
-    const offStatus = window.customcluely.onTranscriptionStatus(
+    const offStatus = window.whisperglass.onTranscriptionStatus(
       (status: TranscriptionStatusPayload) => {
         setReady(status.ready)
         setStatusDetail(status.detail)
       }
     )
-    const offSidecar = window.customcluely.onSidecarStatus(
-      (status: SidecarStatusPayload) => {
-        setAudioPaused(status.state === 'paused')
-      }
-    )
+    const offSidecar = window.whisperglass.onSidecarStatus((status: SidecarStatusPayload) => {
+      setAudioPaused(status.state === 'paused')
+    })
     return () => {
       offUpdate()
       offStatus()
@@ -57,12 +55,12 @@ export function useTranscript(): UseTranscript {
 
   const startListening = useCallback(() => {
     setListening(true)
-    window.customcluely.startTranscription()
+    window.whisperglass.startTranscription()
   }, [])
 
   const stopListening = useCallback(() => {
     setListening(false)
-    window.customcluely.stopTranscription()
+    window.whisperglass.stopTranscription()
   }, [])
 
   return {

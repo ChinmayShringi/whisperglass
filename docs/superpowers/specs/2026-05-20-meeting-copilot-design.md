@@ -1,13 +1,13 @@
-# Design Spec: Local Cluely "Live Insights" Clone (macOS)
+# Design Spec: Local AI Meeting-Copilot Overlay (macOS)
 
 - **Date:** 2026-05-20
 - **Status:** Approved (design)
-- **Project:** Customcluely
+- **Project:** Whisperglass
 
 ## 1. Summary
 
-A macOS-only, local-first desktop app that reproduces Cluely's **Live Insights**
-feature: an always-on-top overlay that listens to a meeting, transcribes the
+A macOS-only, local-first desktop app that delivers live meeting insights:
+an always-on-top overlay that listens to a meeting, transcribes the
 audio on-device, and streams concise AI answers into a small black-and-white
 overlay UI.
 
@@ -24,11 +24,11 @@ mirrors how the OpenClaw harness drives Codex as an external agent process.
 | AI provider | OpenAI Codex CLI, not the API | User: "local only, instead of API key use codex cli" |
 | Architecture | Approach B-lite | Electron loopback system audio is Windows-only (Electron docs), so macOS needs a native capture path |
 | Transcription | Local `whisper.cpp` | Codex cannot transcribe audio, and no API key is allowed, so speech-to-text must run on-device |
-| Invisibility | Included as opt-in toggle, default OFF | Core to the request; matches how Cluely itself ships it ("opt-in feature") |
+| Invisibility | Included as opt-in toggle, default OFF | Core to the request; ships as an opt-in feature, a common meeting-assistant pattern |
 
 ## 3. Goals
 
-- Reproduce the Cluely Live Insights experience: listen, transcribe, answer, all
+- Deliver live meeting insights: listen, transcribe, answer, all
   in a discreet overlay.
 - Run AI through the `codex` CLI with zero API-key handling in the app.
 - Run transcription fully on-device.
@@ -117,7 +117,7 @@ Rationale for the process split:
 
 - Creates the overlay window: `transparent: true`, `frame: false`,
   `alwaysOnTop` at screen-saver level, `resizable: false`, positioned
-  top-center like Cluely's command bar.
+  top-center as the command bar.
 - Owns `setContentProtection(boolean)` for the invisibility toggle.
 - Registers global hotkeys via `globalShortcut` (see section 12).
 - Spawns and supervises the sidecar, the Codex runner, and the Whisper
@@ -192,7 +192,7 @@ Action.
 ### 8.6 Session orchestrator
 
 - Start and stop a session (the overlay shows insights only during a session,
-  matching Cluely's post-September-2025 model).
+  using a session-scoped insight model).
 - Wires audio to transcription to the rolling buffer.
 - Runs `dynamic-insights`: detects questions and salient keywords in incoming
   transcript segments and surfaces them below the command bar.
@@ -203,8 +203,8 @@ Action.
   Codex runner verifies the binary (`codex --version`) and checks for
   authentication; if either is missing, a `SetupBanner` explains the fix.
 - Latency: Codex is an agentic harness, so answers land in roughly 2 to 6
-  seconds with low reasoning effort, slower than the real Cluely's tuned
-  inference. Token-by-token streaming into the overlay hides most of the wait.
+  seconds with low reasoning effort, slower than a tuned hosted-inference
+  service. Token-by-token streaming into the overlay hides most of the wait.
   This is the single biggest trade-off of using the CLI instead of an API.
 - The `codex app-server` JSON-RPC integration (the full OpenClaw pattern) is a
   later optimization, not part of v1. The v1 runner uses `codex exec` per
@@ -245,7 +245,7 @@ Sidecar to main:
 {"type":"permission","kind":"screen|mic","granted":true|false}
 ```
 
-## 12. Features (cloned from Cluely Live Insights)
+## 12. Features (live meeting insights)
 
 - Command bar, top-center, frameless, black-and-white.
 - Default Actions: "What should I say next", "Follow-up questions",
@@ -355,8 +355,8 @@ it using transcript and screen context.
 
 ## 19. Known risks and honest caveats
 
-- **Codex latency:** answers take roughly 2 to 6 seconds; this clone is slower
-  than the real Cluely. Mitigated by streaming and low reasoning effort.
+- **Codex latency:** answers take roughly 2 to 6 seconds; this is slower
+  than a tuned hosted-inference service. Mitigated by streaming and low reasoning effort.
 - **Invisibility scope:** `setContentProtection` hides the window from software
   screen capture only. It does not hide it from a phone camera pointed at the
   screen or from a hardware capture card.

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "customcluely-sidecar",
+    name: "whisperglass-sidecar",
     platforms: [
         // ScreenCaptureKit audio capture and SCScreenshotManager both require
         // macOS 14. The whole app is macOS-only, so this is the floor.
@@ -16,7 +16,7 @@ let package = Package(
         // The capture executable. Capture units live here; they need real
         // audio and screen hardware and are verified by the manual checklist.
         .executableTarget(
-            name: "customcluely-sidecar",
+            name: "whisperglass-sidecar",
             dependencies: ["SidecarCore"]
         ),
         .testTarget(

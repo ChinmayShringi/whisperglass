@@ -59,10 +59,10 @@ export const WHISPER = {
 export const SIDECAR = {
   // The Swift capture sidecar binary, built from source by
   // scripts/setup-sidecar.sh and committed under resources/sidecar/.
-  binaryName: 'customcluely-sidecar',
+  binaryName: 'whisperglass-sidecar',
   // The Electron app's bundle id. Sent on the `start` command so the sidecar
   // can exclude the app's own overlay windows from screenshots.
-  appBundleId: 'com.customcluely.app',
+  appBundleId: 'com.whisperglass.app',
   // Capture sources requested on `start`, matching the protocol vocabulary.
   captureSources: ['systemAudio', 'mic'],
   // Supervisor restart backoff: 1 s, 2 s, 4 s, 8 s, then capped at 8 s.
