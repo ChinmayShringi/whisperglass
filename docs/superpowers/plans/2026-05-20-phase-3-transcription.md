@@ -4,7 +4,7 @@
 
 **Goal:** Transcribe microphone audio on-device with bundled whisper.cpp so that speaking produces live transcript text in the overlay with no network call for transcription.
 
-**Architecture:** The renderer captures microphone audio with `getUserMedia` and an `AudioWorklet`, downsamples it to 16 kHz mono 16-bit PCM, and ships fixed-size PCM frames to the main process over IPC as base64 strings. The main process accumulates frames into a rolling overlapping audio window, writes each window to a temporary 16 kHz mono WAV file, spawns the bundled `whisper-cli` subprocess on it, parses the JSON output, de-duplicates the overlap against the previous window, and appends new text to an immutable rolling transcript buffer. Buffer updates are pushed back to the renderer and rendered by the existing `TranscriptPanel`. The whisper modules mirror the proven `src/main/codex/` structure: pure dependency-injected logic plus one subprocess runner.
+**Architecture:** The user starts a listening session with an explicit "Start listening" toggle; only then does the renderer call `getUserMedia` and capture microphone audio with an `AudioWorklet`, downsample it to 16 kHz mono 16-bit PCM, and ship fixed-size PCM frames to the main process over IPC as base64 strings. The main process accumulates frames into a rolling overlapping audio window, writes each window to a temporary 16 kHz mono WAV file, spawns the bundled `whisper-cli` subprocess on it, parses the JSON output, de-duplicates the overlap against the previous window, and appends new text to an immutable rolling transcript buffer. Buffer updates are pushed back to the renderer and rendered by the existing `TranscriptPanel`. Stopping the session releases the microphone tracks and resets the rolling audio state so a new session never inherits stale audio. The whisper modules mirror the proven `src/main/codex/` structure: pure dependency-injected logic plus one subprocess runner.
 
 **Tech Stack:** Electron 39, TypeScript (no semicolons, single quotes, 2-space indent, prettier `trailingComma: none`), React 19, electron-vite, whisper.cpp v1.8.4 (built from source with CMake, Metal backend), Vitest 4 (no globals, node default environment, jsdom for renderer tests).
 
@@ -36,6 +36,7 @@ These were verified on 2026-05-22. Treat them as fixed inputs.
 - **Build vs prebuilt:** build from source at dev time via `scripts/setup-whisper.sh` (see fact 2). The compiled `whisper-cli` is committed; the model is not.
 - **Rolling window size and overlap:** **8-second windows with 2 seconds of overlap** (a fresh window every 6 seconds of new audio). 8 seconds gives whisper enough phrase context for accurate base.en transcription while keeping each `whisper-cli` invocation well under a second on Apple Silicon; 2 seconds of overlap reliably spans word and short-phrase boundaries so the de-duplicator can stitch consecutive windows without dropping or doubling words.
 - **Audio across IPC:** mic PCM frames cross IPC as **base64-encoded 16-bit PCM strings**. This is the simplest correct approach: it avoids transferable-buffer lifetime pitfalls and is trivially serializable by Electron's structured-clone IPC. Frames are small (a 1-second 16 kHz mono frame is 32 KB of PCM, about 43 KB base64). Phase 4 moves capture into the Swift sidecar and this IPC channel is removed.
+- **Explicit "Start listening" toggle:** transcription is **not** started on app mount. The user activates a dedicated `ListenToggle` button, and only that activation calls `getUserMedia`, so the macOS microphone permission prompt fires on a deliberate user action. Stopping releases the `MediaStream` tracks (the macOS mic indicator turns off) and resets the main-process rolling audio state. This gives the user clear control over when the microphone is live.
 
 ---
 
@@ -70,9 +71,10 @@ Every file created or modified in Phase 3, with its single responsibility.
 
 - `src/renderer/src/audio/pcm-worklet.ts` - the `AudioWorkletProcessor` source, emitted as a string and registered into the `AudioContext`; posts raw Float32 audio blocks to the main thread.
 - `src/renderer/src/audio/downsample.ts` - pure functions: downsample a Float32 block from the source rate to 16 kHz, and convert Float32 to Int16 PCM.
-- `src/renderer/src/audio/mic-capture.ts` - starts and stops `getUserMedia` plus the `AudioWorklet` graph; calls back with 16 kHz Int16 PCM frames. The single seam Phase 4 replaces.
-- `src/renderer/src/hooks/useTranscript.ts` - React hook that starts and stops capture, ships frames over IPC, and exposes the live transcript segments; mirrors `useCodexAnswer.ts`.
-- `src/renderer/src/App.tsx` (MODIFIED) - replaces the static empty `segments` state with the `useTranscript` hook output.
+- `src/renderer/src/audio/mic-capture.ts` - the start/stop microphone capture seam: `startMicCapture` calls `getUserMedia` (firing the macOS permission prompt) only when invoked, and the returned handle's `stop` releases the `MediaStream` tracks so the mic indicator turns off. The single seam Phase 4 replaces.
+- `src/renderer/src/components/ListenToggle.tsx` - a small dedicated button (mirrors `EyeToggle.tsx`) that shows the listening state and toggles it; capture starts only on user activation.
+- `src/renderer/src/hooks/useTranscript.ts` - React hook that exposes the live transcript segments plus `listening` state and `startListening`/`stopListening` actions; mirrors `useCodexAnswer.ts`. Capture is never started on mount.
+- `src/renderer/src/App.tsx` (MODIFIED) - replaces the static empty `segments` state with the `useTranscript` hook output and renders the `ListenToggle` in the command bar.
 
 ### Created - scripts and resources
 
@@ -94,6 +96,7 @@ Every file created or modified in Phase 3, with its single responsibility.
 - `tests/main/ipc/ipc-handlers.test.ts` (MODIFIED) - adds coverage for the three new channels.
 - `tests/renderer/audio/downsample.test.ts`
 - `tests/renderer/hooks/useTranscript.test.ts`
+- `tests/renderer/components/ListenToggle.test.tsx`
 - `tests/fixtures/whisper/mock-whisper-ok.mjs` - mock `whisper-cli` that writes a valid JSON output file and exits 0.
 - `tests/fixtures/whisper/mock-whisper-fail.mjs` - mock `whisper-cli` that writes to stderr and exits 1.
 - `tests/fixtures/whisper/sample-output.json` - a captured whisper.cpp JSON output file used by the parser test.
@@ -2187,13 +2190,13 @@ git commit -m "feat: add renderer audio downsampler and PCM converter"
 
 ---
 
-## Task 14: AudioWorklet processor and mic-capture module
+## Task 14: AudioWorklet processor and start/stop mic-capture seam
 
 **Files:**
 - Create: `src/renderer/src/audio/pcm-worklet.ts`
 - Create: `src/renderer/src/audio/mic-capture.ts`
 
-This task wires browser audio APIs and has no pure logic to unit-test beyond Task 13; it is verified by typecheck and by the Phase 3 manual verification (Task 17). The implementation is shown complete below.
+This task wires browser audio APIs and has no pure logic to unit-test beyond Task 13; it is verified by typecheck and by the Phase 3 manual verification (Task 18). The implementation is shown complete below. `mic-capture.ts` is an explicit start/stop seam: `startCapture()` calls `getUserMedia` (and so fires the macOS microphone permission prompt) ONLY when invoked, never on import or mount; the returned handle's `stopCapture()` releases the `MediaStream` tracks so the macOS microphone indicator turns off.
 
 - [ ] **Step 1: Create the AudioWorklet processor source**
 
@@ -2221,7 +2224,7 @@ registerProcessor('${PCM_WORKLET_NAME}', CustomcluelyPcmWorklet)
 `
 ```
 
-- [ ] **Step 2: Create the mic-capture module**
+- [ ] **Step 2: Create the start/stop mic-capture module**
 
 Create `src/renderer/src/audio/mic-capture.ts`:
 
@@ -2233,8 +2236,8 @@ import { PCM_WORKLET_NAME, PCM_WORKLET_SOURCE } from './pcm-worklet'
 const FRAME_BYTES = 32_000
 
 export interface MicCaptureHandle {
-  /** Stops capture and releases the microphone and audio graph. */
-  stop: () => Promise<void>
+  /** Stops capture and releases the microphone tracks and audio graph. */
+  stopCapture: () => Promise<void>
 }
 
 export interface MicCaptureCallbacks {
@@ -2245,9 +2248,15 @@ export interface MicCaptureCallbacks {
 }
 
 // Starts microphone capture and delivers 16 kHz mono 16-bit PCM frames. This
-// is the STOPGAP audio source: Phase 4 replaces it with the Swift sidecar, so
-// this module is the entire seam to swap. The returned handle stops capture.
-export async function startMicCapture(
+// is the explicit start/stop audio-source seam and the STOPGAP capture path:
+// Phase 4 replaces it with the Swift sidecar, so this module is the entire
+// seam to swap.
+//
+// getUserMedia is called only inside this function, so the macOS microphone
+// permission prompt fires only on a deliberate user action (the ListenToggle),
+// never on import or app mount. The returned handle's stopCapture releases the
+// MediaStream tracks, which turns the macOS microphone indicator off.
+export async function startCapture(
   callbacks: MicCaptureCallbacks
 ): Promise<MicCaptureHandle> {
   let pending = Buffer.alloc(0)
@@ -2279,18 +2288,20 @@ export async function startMicCapture(
     // the graph alive without producing sound (it returns silence).
     worklet.connect(context.destination)
 
-    const stop = async (): Promise<void> => {
+    const stopCapture = async (): Promise<void> => {
       worklet.port.onmessage = null
       worklet.disconnect()
       source.disconnect()
+      // Stopping every track releases the microphone so the macOS mic
+      // indicator turns off.
       stream.getTracks().forEach((track) => track.stop())
       await context.close()
     }
-    return { stop }
+    return { stopCapture }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Microphone capture failed.'
     callbacks.onError(`Could not start microphone capture: ${message}`)
-    return { stop: async () => {} }
+    return { stopCapture: async () => {} }
   }
 }
 ```
@@ -2304,7 +2315,7 @@ Expected: PASS, no type errors.
 
 ```bash
 git add src/renderer/src/audio/pcm-worklet.ts src/renderer/src/audio/mic-capture.ts
-git commit -m "feat: add AudioWorklet mic capture producing 16 kHz PCM frames"
+git commit -m "feat: add start/stop AudioWorklet mic capture seam"
 ```
 
 ---
@@ -2322,7 +2333,7 @@ Create `tests/renderer/hooks/useTranscript.test.ts`:
 ```typescript
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTranscript } from '../../../src/renderer/src/hooks/useTranscript'
 import type { TranscriptUpdatePayload, TranscriptionStatusPayload } from '../../../src/shared/types'
 
@@ -2332,12 +2343,24 @@ let updateCb: Cb<TranscriptUpdatePayload> = () => {}
 let statusCb: Cb<TranscriptionStatusPayload> = () => {}
 let started = 0
 let stopped = 0
+let getUserMediaCalls = 0
+let trackStops = 0
+
+// A fake MediaStream whose tracks count their stop() calls, so a test can
+// confirm stopListening releases the microphone.
+function fakeStream(): MediaStream {
+  return {
+    getTracks: () => [{ stop: () => { trackStops += 1 } }]
+  } as unknown as MediaStream
+}
 
 beforeEach(() => {
   updateCb = () => {}
   statusCb = () => {}
   started = 0
   stopped = 0
+  getUserMediaCalls = 0
+  trackStops = 0
   window.customcluely = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
@@ -2362,13 +2385,51 @@ beforeEach(() => {
       return () => {}
     })
   }
+  // The AudioContext and AudioWorklet APIs are not implemented in jsdom, so
+  // they are stubbed here. getUserMedia is counted to prove it is NOT called
+  // on mount and IS called only on startListening.
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true,
+    value: {
+      getUserMedia: vi.fn(async () => {
+        getUserMediaCalls += 1
+        return fakeStream()
+      })
+    }
+  })
+  class FakeAudioContext {
+    sampleRate = 48_000
+    destination = {}
+    audioWorklet = { addModule: vi.fn(async () => {}) }
+    createMediaStreamSource(): { connect: () => void; disconnect: () => void } {
+      return { connect: () => {}, disconnect: () => {} }
+    }
+    close(): Promise<void> {
+      return Promise.resolve()
+    }
+  }
+  class FakeAudioWorkletNode {
+    port: { onmessage: unknown } = { onmessage: null }
+    connect(): void {}
+    disconnect(): void {}
+  }
+  vi.stubGlobal('AudioContext', FakeAudioContext)
+  vi.stubGlobal('AudioWorkletNode', FakeAudioWorkletNode)
+  vi.stubGlobal('Blob', class {})
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} })
 })
 
 describe('useTranscript', () => {
-  it('starts with no segments and a not-ready status', () => {
+  it('starts with no segments, not listening, and a not-ready status', () => {
     const { result } = renderHook(() => useTranscript())
     expect(result.current.segments).toEqual([])
+    expect(result.current.listening).toBe(false)
     expect(result.current.ready).toBe(false)
+  })
+
+  it('does not call getUserMedia on mount', () => {
+    renderHook(() => useTranscript())
+    expect(getUserMediaCalls).toBe(0)
   })
 
   it('updates segments when a transcript update arrives', () => {
@@ -2389,16 +2450,24 @@ describe('useTranscript', () => {
     expect(result.current.statusDetail).toBe('downloading model')
   })
 
-  it('calls startTranscription on the bridge when start is invoked', () => {
+  it('startListening sets listening true, notifies the bridge, and calls getUserMedia', async () => {
     const { result } = renderHook(() => useTranscript())
-    act(() => result.current.start())
+    act(() => result.current.startListening())
+    expect(result.current.listening).toBe(true)
     expect(started).toBe(1)
+    await waitFor(() => expect(getUserMediaCalls).toBe(1))
   })
 
-  it('calls stopTranscription on the bridge when stop is invoked', () => {
+  it('stopListening sets listening false, notifies the bridge, and releases the mic tracks', async () => {
     const { result } = renderHook(() => useTranscript())
-    act(() => result.current.stop())
+    act(() => result.current.startListening())
+    await waitFor(() => expect(getUserMediaCalls).toBe(1))
+    await act(async () => {
+      result.current.stopListening()
+    })
+    expect(result.current.listening).toBe(false)
     expect(stopped).toBe(1)
+    await waitFor(() => expect(trackStops).toBe(1))
   })
 })
 ```
@@ -2419,26 +2488,31 @@ import type {
   TranscriptUpdatePayload,
   TranscriptionStatusPayload
 } from '../../../shared/types'
-import { startMicCapture, type MicCaptureHandle } from '../audio/mic-capture'
+import { startCapture, type MicCaptureHandle } from '../audio/mic-capture'
 
 export interface UseTranscript {
   segments: TranscriptSegment[]
   ready: boolean
   statusDetail: string
-  /** Begins microphone capture and transcription. */
-  start: () => void
-  /** Stops microphone capture and transcription. */
-  stop: () => void
+  /** True while a microphone listening session is active. */
+  listening: boolean
+  /** Begins a listening session: prompts for the mic and starts capture. */
+  startListening: () => void
+  /** Ends the listening session: releases the mic and resets rolling state. */
+  stopListening: () => void
 }
 
 // Renderer-side transcription controller. It subscribes to transcript updates
-// and transcription status from the main process, and starts or stops the
-// stopgap microphone capture. Mirrors the useCodexAnswer hook pattern: an
-// effect wires the IPC subscriptions, callbacks drive the imperative actions.
+// and transcription status from the main process, and exposes an explicit
+// start/stop listening session. Capture (and the macOS microphone permission
+// prompt) is never started on mount: only startListening triggers it. Mirrors
+// the useCodexAnswer hook pattern: an effect wires the IPC subscriptions,
+// callbacks drive the imperative actions.
 export function useTranscript(): UseTranscript {
   const [segments, setSegments] = useState<TranscriptSegment[]>([])
   const [ready, setReady] = useState(false)
   const [statusDetail, setStatusDetail] = useState('')
+  const [listening, setListening] = useState(false)
   const captureRef = useRef<MicCaptureHandle | null>(null)
 
   useEffect(() => {
@@ -2454,47 +2528,145 @@ export function useTranscript(): UseTranscript {
     return () => {
       offUpdate()
       offStatus()
-      void captureRef.current?.stop()
+      void captureRef.current?.stopCapture()
       captureRef.current = null
     }
   }, [])
 
-  const start = useCallback(() => {
+  const startListening = useCallback(() => {
     if (captureRef.current) return
+    setListening(true)
+    // Tell main to reset its rolling audio state for a fresh session.
     window.customcluely.startTranscription()
-    void startMicCapture({
+    void startCapture({
       onFrame: (pcmBase64) => window.customcluely.sendAudioFrame({ pcmBase64 }),
-      onError: (message) => setStatusDetail(message)
+      onError: (message) => {
+        setStatusDetail(message)
+        setListening(false)
+      }
     }).then((handle) => {
       captureRef.current = handle
     })
   }, [])
 
-  const stop = useCallback(() => {
+  const stopListening = useCallback(() => {
+    setListening(false)
     window.customcluely.stopTranscription()
-    void captureRef.current?.stop()
+    void captureRef.current?.stopCapture()
     captureRef.current = null
   }, [])
 
-  return { segments, ready, statusDetail, start, stop }
+  return { segments, ready, statusDetail, listening, startListening, stopListening }
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm run test -- tests/renderer/hooks/useTranscript.test.ts`
-Expected: PASS, 6 cases green.
+Expected: PASS, 8 cases green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/hooks/useTranscript.ts tests/renderer/hooks/useTranscript.test.ts
-git commit -m "feat: add useTranscript renderer hook"
+git commit -m "feat: add useTranscript renderer hook with explicit listening control"
 ```
 
 ---
 
-## Task 16: Wire transcription end to end
+## Task 16: ListenToggle component
+
+**Files:**
+- Create: `src/renderer/src/components/ListenToggle.tsx`
+- Test: `tests/renderer/components/ListenToggle.test.tsx`
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/renderer/components/ListenToggle.test.tsx`:
+
+```typescript
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { ListenToggle } from '../../../src/renderer/src/components/ListenToggle'
+
+describe('ListenToggle', () => {
+  it('labels itself by the current listening state', () => {
+    render(<ListenToggle listening={true} onToggle={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Listening: on' })).toBeInTheDocument()
+  })
+
+  it('calls onToggle when clicked', async () => {
+    const onToggle = vi.fn()
+    render(<ListenToggle listening={false} onToggle={onToggle} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Listening: off' }))
+    expect(onToggle).toHaveBeenCalledOnce()
+  })
+
+  it('shows "Start listening" text when listening is false', () => {
+    render(<ListenToggle listening={false} onToggle={vi.fn()} />)
+    expect(screen.getByRole('button')).toHaveTextContent('Start listening')
+  })
+
+  it('shows "Stop listening" text when listening is true', () => {
+    render(<ListenToggle listening={true} onToggle={vi.fn()} />)
+    expect(screen.getByRole('button')).toHaveTextContent('Stop listening')
+  })
+
+  it('does not call onToggle before any click', () => {
+    const onToggle = vi.fn()
+    render(<ListenToggle listening={false} onToggle={onToggle} />)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm run test -- tests/renderer/components/ListenToggle.test.tsx`
+Expected: FAIL with `Cannot find module '../../../src/renderer/src/components/ListenToggle'`.
+
+- [ ] **Step 3: Write the implementation**
+
+Create `src/renderer/src/components/ListenToggle.tsx` (mirrors `EyeToggle.tsx` in structure and size: a single labelled button):
+
+```typescript
+import React from 'react'
+
+interface ListenToggleProps {
+  listening: boolean
+  onToggle: () => void
+}
+
+export function ListenToggle({ listening, onToggle }: ListenToggleProps): React.JSX.Element {
+  return (
+    <button
+      className="listen-toggle"
+      aria-label={`Listening: ${listening ? 'on' : 'off'}`}
+      onClick={onToggle}
+    >
+      {listening ? 'Stop listening' : 'Start listening'}
+    </button>
+  )
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npm run test -- tests/renderer/components/ListenToggle.test.tsx`
+Expected: PASS, 5 cases green.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/renderer/src/components/ListenToggle.tsx tests/renderer/components/ListenToggle.test.tsx
+git commit -m "feat: add ListenToggle component for explicit mic control"
+```
+
+---
+
+## Task 17: Wire transcription end to end
 
 **Files:**
 - Modify: `src/renderer/src/App.tsx`
@@ -2505,7 +2677,7 @@ git commit -m "feat: add useTranscript renderer hook"
 
 - [ ] **Step 1: Add a failing renderer test for the live transcript wiring**
 
-Append this `describe` block to `tests/renderer/App.test.tsx` (keep all existing imports and cases). It mocks the full `window.customcluely` bridge and asserts the App renders a transcript segment delivered through `onTranscriptUpdate`:
+Append this `describe` block to `tests/renderer/App.test.tsx` (keep all existing imports and cases). It mocks the full `window.customcluely` bridge and asserts the App renders a transcript segment delivered through `onTranscriptUpdate` and shows the `ListenToggle` button:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -2542,15 +2714,21 @@ describe('App live transcript wiring', () => {
     act(() => updateCb({ segments: [{ id: 's1', speaker: 'you', text: 'live transcript line' }] }))
     expect(screen.getByText('live transcript line')).toBeInTheDocument()
   })
+
+  it('renders a Start listening control and does not auto-start listening', () => {
+    render(<App />)
+    expect(screen.getByRole('button', { name: 'Listening: off' })).toBeInTheDocument()
+    expect(window.customcluely.startTranscription).not.toHaveBeenCalled()
+  })
 })
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm run test -- tests/renderer/App.test.tsx`
-Expected: FAIL: the App still uses static empty `segments` state, so `getByText('live transcript line')` throws a not-found error. Existing App tests may also fail because `window.customcluely` now needs the new methods; the rewritten `beforeEach` above supplies them, but if other App test blocks build their own bridge mock they must be updated to include the five new methods. Update those mocks in this step so only the intended assertion fails.
+Expected: FAIL: the App still uses static empty `segments` state, so `getByText('live transcript line')` throws a not-found error, and there is no `Listening: off` button. Existing App tests may also fail because `window.customcluely` now needs the new methods; the rewritten `beforeEach` above supplies them, but if other App test blocks build their own bridge mock they must be updated to include the five new methods. Update those mocks in this step so only the intended assertions fail.
 
-- [ ] **Step 3: Update `src/renderer/src/App.tsx` to use the hook**
+- [ ] **Step 3: Update `src/renderer/src/App.tsx` to use the hook and the ListenToggle**
 
 Replace the entire contents of `src/renderer/src/App.tsx` with:
 
@@ -2560,6 +2738,7 @@ import { CommandBar } from './components/CommandBar'
 import { TranscriptPanel } from './components/TranscriptPanel'
 import { AnswerPanel } from './components/AnswerPanel'
 import { EyeToggle } from './components/EyeToggle'
+import { ListenToggle } from './components/ListenToggle'
 import { SetupBanner } from './components/SetupBanner'
 import { useCodexAnswer } from './hooks/useCodexAnswer'
 import { useTranscript } from './hooks/useTranscript'
@@ -2570,7 +2749,7 @@ export function App(): React.JSX.Element {
   const [invisible, setInvisible] = useState(false)
   const [setupMessage, setSetupMessage] = useState<string | null>(null)
   const { state, ask, retry } = useCodexAnswer()
-  const { segments, start, stop } = useTranscript()
+  const { segments, listening, startListening, stopListening } = useTranscript()
 
   useEffect(() => {
     const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
@@ -2579,19 +2758,21 @@ export function App(): React.JSX.Element {
     const offStatus = window.customcluely.onCodexStatus((status: CodexStatus) => {
       setSetupMessage(status.available && status.authenticated ? null : status.detail)
     })
-    start()
     return () => {
       offState()
       offStatus()
-      stop()
     }
-  }, [start, stop])
+  }, [])
 
   return (
     <div className="app">
       <SetupBanner message={setupMessage} />
       <div className="app__bar">
         <CommandBar onSubmit={ask} disabled={state.status === 'streaming'} />
+        <ListenToggle
+          listening={listening}
+          onToggle={() => (listening ? stopListening() : startListening())}
+        />
         <EyeToggle invisible={invisible} onToggle={() => window.customcluely.toggleInvisibility()} />
       </div>
       {state.question.length > 0 && <p className="app__active-question">{state.question}</p>}
@@ -2604,10 +2785,12 @@ export function App(): React.JSX.Element {
 export default App
 ```
 
+Listening is never started on mount: the `ListenToggle`'s `onToggle` is the only path that calls `startListening`.
+
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm run test -- tests/renderer/App.test.tsx`
-Expected: PASS, the new case and all existing cases green.
+Expected: PASS, the two new cases and all existing cases green.
 
 - [ ] **Step 5: Create the whisper.cpp setup script**
 
@@ -2819,9 +3002,13 @@ app.whenReady().then(() => {
     onAskQuestion: (request) => {
       void codexService.handleAsk(request)
     },
+    // Starting a listening session resets the rolling audio state so the new
+    // session never inherits stale PCM or transcript text from a prior one.
     onStartTranscription: () => {
       transcriptionService.reset()
     },
+    // Stopping likewise clears the accumulator and rolling state. After this,
+    // the renderer has released the microphone and sends no further frames.
     onStopTranscription: () => {
       transcriptionService.reset()
     },
@@ -2896,7 +3083,7 @@ git commit -m "feat: wire microphone transcription end to end"
 
 ---
 
-## Task 17: Phase 3 verification
+## Task 18: Phase 3 verification
 
 **Files:**
 - Create: `docs/superpowers/verification/2026-05-20-phase-3.md`
@@ -2909,7 +3096,7 @@ Create `docs/superpowers/verification/2026-05-20-phase-3.md`:
 # Phase 3 Verification: Local Transcription
 
 **Phase goal:** On-device transcription of microphone audio with whisper.cpp.
-**Acceptance:** Speaking produces live transcript text in the overlay with no network call for transcription.
+**Acceptance:** After the user starts a listening session, speaking produces live transcript text in the overlay with no network call for transcription.
 
 ## Automated checks
 
@@ -2917,7 +3104,7 @@ Run each command from the repository root. All must pass.
 
 | # | Command | Expected |
 |---|---------|----------|
-| 1 | `npm run test` | All test files pass, including every `tests/main/transcription/*`, `tests/renderer/audio/*`, and `tests/renderer/hooks/useTranscript.test.ts`. |
+| 1 | `npm run test` | All test files pass, including every `tests/main/transcription/*`, `tests/renderer/audio/*`, `tests/renderer/hooks/useTranscript.test.ts`, and `tests/renderer/components/ListenToggle.test.tsx`. |
 | 2 | `npm run typecheck` | No type errors in node or web projects. |
 | 3 | `npm run lint` | No lint errors. |
 | 4 | `npm run build` | electron-vite build succeeds. |
@@ -2930,10 +3117,10 @@ Run each command from the repository root. All must pass.
 | Roadmap item | Implemented by |
 |---|---|
 | T3.1 Bundle whisper.cpp binary and model download-on-first-run | `scripts/setup-whisper.sh`, `resolve-whisper-paths.ts`, `model-downloader.ts`, the `index.ts` download wiring with progress status. |
-| T3.2 Renderer microphone capture (16 kHz mono PCM) | `audio/pcm-worklet.ts`, `audio/downsample.ts`, `audio/mic-capture.ts`. |
+| T3.2 Renderer microphone capture (16 kHz mono PCM) | `audio/pcm-worklet.ts`, `audio/downsample.ts`, `audio/mic-capture.ts` (explicit start/stop seam). |
 | T3.3 Rolling transcript buffer (immutable, speaker hint) | `transcript-buffer.ts`. |
 | T3.4 Whisper runner with rolling overlapping windows and overlap de-duplication | `pcm-accumulator.ts`, `wav-encoder.ts`, `whisper-json-parser.ts`, `overlap-dedup.ts`, `whisper-runner.ts`, `transcription-service.ts`. |
-| T3.5 Wire mic audio to whisper to buffer to TranscriptPanel | `ipc-handlers.ts`, `preload/api.ts`, `useTranscript.ts`, `App.tsx`, `index.ts`. |
+| T3.5 Wire mic audio to whisper to buffer to TranscriptPanel | `ipc-handlers.ts`, `preload/api.ts`, `useTranscript.ts`, `components/ListenToggle.tsx`, `App.tsx`, `index.ts`. |
 | T3.6 Phase 3 verification | This document. |
 
 ## Manual checklist
@@ -2943,11 +3130,15 @@ Perform these on macOS arm64 with a working microphone.
 - [ ] Run `bash scripts/setup-whisper.sh` once; confirm `resources/whisper/whisper-cli` exists.
 - [ ] Delete `resources/whisper/ggml-base.en.bin` if present, then run `npm run dev`.
 - [ ] Confirm the overlay shows a "Downloading transcription model" status that advances to a percentage and then "On-device transcription ready."
-- [ ] Grant the microphone permission prompt when macOS asks.
+- [ ] Confirm the overlay shows a "Start listening" button and that NO microphone permission prompt has appeared yet (capture is not auto-started).
+- [ ] Click "Start listening", then grant the macOS microphone permission prompt when it appears.
+- [ ] Confirm the button now reads "Stop listening" and the macOS menu-bar microphone indicator is on.
 - [ ] Speak a few clear sentences into the microphone for at least 15 seconds.
 - [ ] Confirm transcript lines appear in the TranscriptPanel, each labelled with the `you` speaker.
 - [ ] Confirm consecutive lines do not repeat the overlapping words (the de-duplicator works).
-- [ ] **No-network check:** open macOS Activity Monitor (Network tab) or run `nettop -p <electron pid>` while speaking after the model finished downloading; confirm transcription itself produces no outbound network traffic. The only network activity in Phase 3 is the one-time model download.
+- [ ] Click "Stop listening"; confirm the button reads "Start listening" again, the macOS microphone indicator turns off, and no new transcript lines appear while you keep speaking.
+- [ ] Click "Start listening" again; confirm a fresh session starts and the new transcript does not inherit stale audio from the previous session.
+- [ ] **No-network check:** open macOS Activity Monitor (Network tab) or run `nettop -p <electron pid>` while listening after the model finished downloading; confirm transcription itself produces no outbound network traffic. The only network activity in Phase 3 is the one-time model download.
 - [ ] Stop and restart the app; confirm the model is not re-downloaded (it is already present at the expected size).
 
 ## Sign-off
@@ -2971,34 +3162,39 @@ git commit -m "docs: add Phase 3 transcription verification"
 
 ## Self-review
 
+This plan has **18 tasks**.
+
 **1. Spec coverage.** Every Phase 3 roadmap item maps to at least one task:
 
-- T3.1 Bundle whisper.cpp binary and model download-on-first-run: Task 2 (path resolver), Task 3 (model downloader), Task 16 (setup script, `.gitkeep`, download wiring with progress status in `index.ts`). The model stays gitignored (`resources/whisper/*.bin`); the binary is committed.
-- T3.2 Renderer microphone capture: Task 13 (downsampler), Task 14 (AudioWorklet and mic-capture). The audio-source seam is `mic-capture.ts` plus the `AudioFramePayload` channel, kept clean for Phase 4.
+- T3.1 Bundle whisper.cpp binary and model download-on-first-run: Task 2 (path resolver), Task 3 (model downloader), Task 17 (setup script, `.gitkeep`, download wiring with progress status in `index.ts`). The model stays gitignored (`resources/whisper/*.bin`); the binary is committed.
+- T3.2 Renderer microphone capture: Task 13 (downsampler), Task 14 (AudioWorklet and the explicit start/stop mic-capture seam). The audio-source seam is `mic-capture.ts` plus the `AudioFramePayload` channel, kept clean for Phase 4.
 - T3.3 Rolling transcript buffer: Task 8 (immutable buffer; segments carry the `you`/`them` speaker hint).
 - T3.4 Whisper runner with overlapping windows and de-duplication: Task 4 (PCM accumulator, 8 s window / 2 s overlap), Task 5 (WAV encoder), Task 6 (JSON parser), Task 7 (overlap de-dup), Task 9 (whisper runner), Task 10 (transcription service that ties them together and de-duplicates before appending).
-- T3.5 Wire mic to whisper to buffer to TranscriptPanel: Task 11 (IPC handlers), Task 12 (preload API), Task 15 (`useTranscript`), Task 16 (`App.tsx` and `index.ts`).
-- T3.6 Phase 3 verification: Task 17.
+- T3.5 Wire mic to whisper to buffer to TranscriptPanel: Task 11 (IPC handlers), Task 12 (preload API), Task 15 (`useTranscript`), Task 16 (`ListenToggle` component), Task 17 (`App.tsx` and `index.ts`).
+- T3.6 Phase 3 verification: Task 18.
 
-Scope is not expanded: no summarization, no system audio, no sessions (those are Phases 4 and 5). System audio (`them`) is only mentioned as the reason the buffer's speaker field is a union; Phase 3 only ever appends `you`.
+The user decision for an explicit "Start listening" toggle is covered: capture is never started on mount; Task 14's `startCapture` calls `getUserMedia` only when invoked; Task 15's `useTranscript` exposes `listening`, `startListening`, `stopListening` and never starts capture in its mount effect; Task 16 adds the dedicated `ListenToggle` component; Task 17 wires it into `App.tsx` so only a button click starts a session. Stopping releases the `MediaStream` tracks (Task 14's `stopCapture`) and resets main-process rolling state (Task 17's `onStartTranscription`/`onStopTranscription` both call `transcriptionService.reset()`).
 
-**2. Placeholder scan.** No `TODO`, `TBD`, `implement later`, `add error handling`, `similar to Task N`, or bare "write tests" placeholders. Every code step contains complete code. Task 14 has no unit test by design (browser audio APIs); this is stated explicitly and it is covered by typecheck plus the Task 17 manual checklist, not hidden.
+Scope is not expanded: no summarization, no system audio, no session manager (those are Phases 4 and 5). System audio (`them`) is only mentioned as the reason the buffer's speaker field is a union; Phase 3 only ever appends `you`.
+
+**2. Placeholder scan.** No `TODO`, `TBD`, `implement later`, `add error handling`, `similar to Task N`, or bare "write tests" placeholders. Every code step contains complete code. Task 14 has no unit test by design (browser audio APIs); this is stated explicitly and it is covered by typecheck, by the `useTranscript` test in Task 15 (which stubs `AudioContext`, `AudioWorkletNode`, and `getUserMedia`), and by the Task 18 manual checklist.
 
 **3. Type and name consistency.** Verified across tasks:
 
-- `IpcChannel` keys `StartTranscription`, `StopTranscription`, `AudioFrame`, `TranscriptUpdate`, `TranscriptionStatus` (Task 1) are used identically in Tasks 11, 12, 15, 16.
-- `AudioFramePayload` (`pcmBase64`), `TranscriptUpdatePayload` (`segments`), `TranscriptionStatusPayload` (`ready`, `detail`) defined in Task 1 are consumed unchanged in Tasks 10, 12, 15, 16.
-- `WHISPER` fields (`binaryName`, `modelFileName`, `modelUrl`, `modelByteSize`, `sampleRate`, `windowSeconds`, `overlapSeconds`, `frameSeconds`, `timeoutMs`, `scratchDirName`) defined in Task 1 are read in Tasks 2, 10, 16.
-- `resolveWhisperPaths` returns `{ binaryPath, modelPath, binaryPresent, modelPresent }` (Task 2), and Task 16 reads exactly those four fields.
+- `IpcChannel` keys `StartTranscription`, `StopTranscription`, `AudioFrame`, `TranscriptUpdate`, `TranscriptionStatus` (Task 1) are used identically in Tasks 11, 12, 15, 17.
+- `AudioFramePayload` (`pcmBase64`), `TranscriptUpdatePayload` (`segments`), `TranscriptionStatusPayload` (`ready`, `detail`) defined in Task 1 are consumed unchanged in Tasks 10, 12, 15, 17.
+- `WHISPER` fields (`binaryName`, `modelFileName`, `modelUrl`, `modelByteSize`, `sampleRate`, `windowSeconds`, `overlapSeconds`, `frameSeconds`, `timeoutMs`, `scratchDirName`) defined in Task 1 are read in Tasks 2, 10, 17.
+- `resolveWhisperPaths` returns `{ binaryPath, modelPath, binaryPresent, modelPresent }` (Task 2), and Task 17 reads exactly those four fields.
 - `RunWhisperResult` (`ok`, `text`, `diagnostic`, `error`) is produced by `runWhisper` in Task 9 and consumed by `createTranscriptionService` in Task 10 with matching field names; the test mocks in Task 10 return the same four fields.
 - `createPcmAccumulator(windowBytes, overlapBytes)` / `pushPcm(state, frame)` / `PcmAccumulatorState` (Task 4) are used with those exact signatures in Task 10.
 - `createTranscriptBuffer` / `appendSegment(buffer, speaker, text)` / `readSegments` / `TranscriptBuffer` (Task 8) are used with those exact signatures in Task 10.
 - `dedupOverlap(previous, next)` (Task 7) is called with that signature in Task 10.
 - `encodeWav(pcm, sampleRate)` (Task 5) is called with that signature in Task 10.
 - `parseWhisperJson(raw)` returning `{ ok, text }` (Task 6) is called in Task 9.
-- `startMicCapture` returning `{ stop }` and `MicCaptureHandle` (Task 14) are used in `useTranscript` (Task 15).
-- `useTranscript` returns `{ segments, ready, statusDetail, start, stop }` (Task 15) and Task 16's `App.tsx` destructures `{ segments, start, stop }`, a subset, which is consistent.
-- `IpcHandlerDeps` gains `onStartTranscription`, `onStopTranscription`, `onAudioFrame` (Task 11) and `index.ts` supplies exactly those plus the two existing handlers (Task 16); the test asserts exactly five channel registrations.
+- `startCapture` returning `{ stopCapture }` and `MicCaptureHandle` (Task 14) are used in `useTranscript` (Task 15) with the matching `startCapture`/`stopCapture` names; the hook's effect cleanup and `stopListening` both call `captureRef.current?.stopCapture()`.
+- `useTranscript` returns `{ segments, ready, statusDetail, listening, startListening, stopListening }` (Task 15) and Task 17's `App.tsx` destructures `{ segments, listening, startListening, stopListening }`, a subset, which is consistent.
+- `ListenToggle` props are `{ listening: boolean, onToggle: () => void }` (Task 16) and Task 17's `App.tsx` passes exactly `listening={listening}` and an `onToggle` that calls `startListening`/`stopListening`.
+- `IpcHandlerDeps` gains `onStartTranscription`, `onStopTranscription`, `onAudioFrame` (Task 11) and `index.ts` supplies exactly those plus the two existing handlers (Task 17); the test asserts exactly five channel registrations.
 
 No inconsistencies found. The plan is internally consistent and ready for execution.
 ```
