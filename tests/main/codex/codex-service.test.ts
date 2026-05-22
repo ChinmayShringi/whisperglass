@@ -110,3 +110,126 @@ describe('createCodexService.handleAsk', () => {
     expect(JSON.stringify(payload)).not.toContain('/Users/secret/leaked')
   })
 })
+
+describe('createCodexService.handleContextAsk', () => {
+  beforeEach(() => {
+    runCodexQuery.mockReset()
+  })
+
+  it('runs a query that carries the transcript context and emits the answer', async () => {
+    const emitted: Emitted[] = []
+    runCodexQuery.mockResolvedValueOnce({ ok: true, text: 'ctx answer', error: '', diagnostic: '' })
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: (channel, payload) => emitted.push({ channel, payload })
+    })
+    await service.handleContextAsk({
+      requestId: 'ctx-1',
+      question: 'what next',
+      segments: [{ id: 's1', speaker: 'them', text: 'we must hit the deadline' }],
+      screenshot: false,
+      extraArgs: []
+    })
+    const done = emitted.filter((e) => e.channel === IpcChannel.AnswerDone)
+    expect(done).toHaveLength(1)
+    expect((done[0].payload as { text: string }).text).toBe('ctx answer')
+    const passedArgs = (runCodexQuery.mock.calls[0][0] as { args: string[] }).args
+    const prompt = passedArgs.at(-1) as string
+    expect(prompt).toContain('we must hit the deadline')
+  })
+
+  it('passes extraArgs through to the codex args', async () => {
+    runCodexQuery.mockResolvedValueOnce({ ok: true, text: 'ok', error: '', diagnostic: '' })
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: () => {}
+    })
+    await service.handleContextAsk({
+      requestId: 'ctx-2',
+      question: 'is that true',
+      segments: [],
+      screenshot: false,
+      extraArgs: ['--search']
+    })
+    const passedArgs = (runCodexQuery.mock.calls[0][0] as { args: string[] }).args
+    expect(passedArgs).toContain('--search')
+  })
+
+  it('attaches the screenshot path with -i when one is provided', async () => {
+    runCodexQuery.mockResolvedValueOnce({ ok: true, text: 'ok', error: '', diagnostic: '' })
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: () => {}
+    })
+    await service.handleContextAsk(
+      {
+        requestId: 'ctx-3',
+        question: 'what is on screen',
+        segments: [],
+        screenshot: true,
+        extraArgs: []
+      },
+      '/tmp/scratch/screenshots/shot-xyz.png'
+    )
+    const passedArgs = (runCodexQuery.mock.calls[0][0] as { args: string[] }).args
+    expect(passedArgs).toEqual(
+      expect.arrayContaining(['-i', '/tmp/scratch/screenshots/shot-xyz.png'])
+    )
+  })
+
+  it('does not attach an image when screenshot is true but no path is given', async () => {
+    runCodexQuery.mockResolvedValueOnce({ ok: true, text: 'ok', error: '', diagnostic: '' })
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: () => {}
+    })
+    await service.handleContextAsk({
+      requestId: 'ctx-4',
+      question: 'q',
+      segments: [],
+      screenshot: true,
+      extraArgs: []
+    })
+    const passedArgs = (runCodexQuery.mock.calls[0][0] as { args: string[] }).args
+    expect(passedArgs).not.toContain('-i')
+  })
+
+  it('rejects a concurrent context-ask while a query is in flight', async () => {
+    const emitted: Emitted[] = []
+    let release: (() => void) | undefined
+    let started: () => void = () => {}
+    const startedP = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    runCodexQuery.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          started()
+          release = () => resolve({ ok: true, text: 'first', error: '', diagnostic: '' })
+        })
+    )
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: (channel, payload) => emitted.push({ channel, payload })
+    })
+    const first = service.handleContextAsk({
+      requestId: 'ctx-5',
+      question: 'first',
+      segments: [],
+      screenshot: false,
+      extraArgs: []
+    })
+    await startedP
+    await service.handleContextAsk({
+      requestId: 'ctx-6',
+      question: 'second',
+      segments: [],
+      screenshot: false,
+      extraArgs: []
+    })
+    const errors = emitted.filter((e) => e.channel === IpcChannel.AnswerError)
+    expect(errors).toHaveLength(1)
+    release?.()
+    await first
+  })
+})
