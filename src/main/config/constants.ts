@@ -72,3 +72,35 @@ export const SIDECAR = {
   // backoff counter resets to the base delay for the next crash.
   stableUptimeMs: 10_000
 } as const
+
+export const CONTEXT = {
+  // The rolling transcript summarizer keeps this many of the most recent
+  // segments verbatim so the model always sees the live thread of the
+  // conversation word for word.
+  recentSegments: 12,
+  // Everything older than the recent window is compacted into a single
+  // digest truncated to this many characters, so a long meeting cannot
+  // grow the Codex prompt without bound.
+  olderCharBudget: 1_200,
+  // Prefix that introduces the compacted older-transcript digest.
+  olderMarker: '[earlier in the meeting]'
+} as const
+
+export const INSIGHTS = {
+  // The dynamic-insight surface shows at most this many insights at once.
+  maxSurfaced: 5,
+  // Salient terms that make a transcript segment worth surfacing as a
+  // keyword insight. Lowercase; matched case-insensitively as substrings.
+  keywords: [
+    'deadline',
+    'budget',
+    'risk',
+    'blocker',
+    'decision',
+    'action item',
+    'next step',
+    'timeline',
+    'owner',
+    'priority'
+  ]
+} as const
