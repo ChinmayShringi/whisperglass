@@ -36,7 +36,7 @@ Verified on 2026-05-22. Treat as fixed inputs.
 
 - **Insight detection heuristic: pure rule-based, no model.** `insight-detector.ts` scans each transcript segment with deterministic rules: (a) a segment is a QUESTION if its trimmed text ends with `?`, or its first word is an interrogative (`who`, `what`, `when`, `where`, `why`, `how`, `which`, `whose`, `can`, `could`, `should`, `would`, `do`, `does`, `did`, `is`, `are`, `will`); (b) a segment yields a KEYWORD insight if it contains a salient term from a small curated list (for example `deadline`, `budget`, `risk`, `blocker`, `decision`, `action item`, `next step`, `timeline`, `owner`, `priority`). Each detected insight carries an id, a kind (`question` | `keyword`), the source segment id, and a short prompt-ready label. Insights are de-duplicated by normalized text and ranked questions-first then by recency. The detector is a pure function over the segment list, fully unit-testable, no network, no model. This resolves the spec's section 20 open item ("rule-based vs a lightweight model") in favor of rule-based for v1.
 
-- **Screenshot PNG location.** Screenshots delivered by the sidecar are decoded from base64 and written to `<userData>/.codex-scratch/screenshots/shot-<uuid>.png`. They live beside the Codex answer files, are attached to the next query via `-i`, and the file is deleted after the query completes (mirroring how `codex-service.ts` removes the answer file in its `finally` block). Only the single most recent screenshot is held as "pending" at a time; requesting another replaces it.
+- **Screenshot PNG location.** Screenshots delivered by the sidecar are decoded from base64 and written to `<userData>/.codex-scratch/screenshots/shot-<uuid>.png`. They live beside the Codex answer files and are attached to the next query via `-i`. The screenshot store's `consume()` only returns the pending path and clears the pending slot; it does not touch the file. The Codex runner (`codex-service.ts` `runQuery`) deletes the screenshot file in its `finally` block once the query completes, exactly as it removes the answer file, so the PNG survives long enough for `codex` to read it. Only the single most recent screenshot is held as "pending" at a time; requesting another replaces it.
 
 - **Tab and screenshot hotkeys are renderer-local.** Per pinned facts 6 and 7, `Tab` (answer first insight) and `Cmd+Shift+S` (capture screenshot) are handled by a `keydown` listener in `App.tsx`, not by `globalShortcut`. `Tab` is ignored while a text input or textarea is focused so normal typing/focus traversal still works.
 
@@ -81,7 +81,7 @@ Every file created or modified in Phase 5, with its single responsibility.
 
 ### Created - main process (`src/main/screenshots/`)
 
-- `src/main/screenshots/screenshot-store.ts` - decodes a base64 PNG to a file in the Codex scratch `screenshots/` dir, tracks the single pending screenshot path, and clears it (deleting the file) after a query consumes it. Dependency-injected filesystem.
+- `src/main/screenshots/screenshot-store.ts` - decodes a base64 PNG to a file in the Codex scratch `screenshots/` dir and tracks the single pending screenshot path. `consume()` returns the path and clears the pending slot without deleting the file; the Codex runner deletes the file after the query. Dependency-injected filesystem.
 
 ### Modified - main process
 
@@ -729,7 +729,17 @@ This task closes the typecheck-red window opened in Task 3: it rewires `codex-se
 
 - [ ] **Step 1: Write the failing test**
 
-Append this block to `tests/main/codex/codex-service.test.ts` inside the existing top-level area (keep every existing import and case; the file already mocks `runCodexQuery` and imports `createCodexService`):
+Append this block to `tests/main/codex/codex-service.test.ts` inside the existing top-level area (keep every existing case; the file already mocks `runCodexQuery` and imports `createCodexService`). The screenshot-cleanup case needs the filesystem helpers, so add these imports alongside the existing ones at the top of the file:
+
+```typescript
+import { join } from 'node:path'
+import { mkdtempSync } from 'node:fs'
+import { access, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
+```
+
+Then append this block:
 
 ```typescript
 describe('createCodexService.handleContextAsk', () => {
@@ -796,6 +806,29 @@ describe('createCodexService.handleContextAsk', () => {
     expect(passedArgs).toEqual(
       expect.arrayContaining(['-i', '/tmp/scratch/screenshots/shot-xyz.png'])
     )
+  })
+
+  it('deletes the screenshot file after the query completes', async () => {
+    runCodexQuery.mockResolvedValueOnce({ ok: true, text: 'ok', error: '', diagnostic: '' })
+    const service = createCodexService({
+      scratchRoot: scratch(),
+      emit: () => {}
+    })
+    // A real temporary PNG that the runner's finally block must remove.
+    const imagePath = join(tmpdir(), `codex-shot-${randomUUID()}.png`)
+    await writeFile(imagePath, Buffer.from('png-bytes'))
+    await service.handleContextAsk(
+      {
+        requestId: 'ctx-shot-cleanup',
+        question: 'what is on screen',
+        segments: [],
+        screenshot: true,
+        extraArgs: []
+      },
+      imagePath
+    )
+    // The file existed during the query and is gone once it finishes.
+    await expect(access(imagePath)).rejects.toThrow()
   })
 
   it('does not attach an image when screenshot is true but no path is given', async () => {
@@ -988,6 +1021,11 @@ export function createCodexService(deps: CodexServiceDeps): CodexService {
     } finally {
       inFlight = false
       await rm(outputFile, { force: true }).catch(() => {})
+      // The screenshot file lives exactly as long as the answer file: it is
+      // attached while the query runs and removed once the query finishes.
+      if (imagePath) {
+        await rm(imagePath, { force: true }).catch(() => {})
+      }
     }
   }
 
@@ -1045,7 +1083,7 @@ export function createCodexService(deps: CodexServiceDeps): CodexService {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test -- tests/main/codex/codex-service.test.ts`
-Expected: PASS, every existing case plus the five new `handleContextAsk` cases green.
+Expected: PASS, every existing case plus the six new `handleContextAsk` cases green.
 
 - [ ] **Step 5: Typecheck (closes the typecheck-red window)**
 
@@ -1646,7 +1684,7 @@ describe('createScreenshotStore', () => {
     expect(store.pendingPath()).not.toBe(firstPath)
   })
 
-  it('consuming the pending screenshot returns its path and clears and deletes it', async () => {
+  it('consuming the pending screenshot returns its path and clears it without deleting the file', async () => {
     const deleteFile = vi.fn(async () => {})
     const store = createScreenshotStore({
       scratchRoot: '/scratch',
@@ -1655,20 +1693,22 @@ describe('createScreenshotStore', () => {
     })
     await store.save({ format: 'png', dataBase64: 'AAAA' })
     const path = store.pendingPath()
-    const consumed = await store.consume()
+    const consumed = store.consume()
     expect(consumed).toBe(path)
     expect(store.pendingPath()).toBeUndefined()
-    expect(deleteFile).toHaveBeenCalledWith(path)
+    // The Codex runner owns deleting the file after the query, so consume
+    // must leave it on disk.
+    expect(deleteFile).not.toHaveBeenCalled()
   })
 
-  it('consuming when nothing is pending returns undefined and does not delete', async () => {
+  it('consuming when nothing is pending returns undefined and does not delete', () => {
     const deleteFile = vi.fn(async () => {})
     const store = createScreenshotStore({
       scratchRoot: '/scratch',
       writeFile: vi.fn(async () => {}),
       deleteFile
     })
-    expect(await store.consume()).toBeUndefined()
+    expect(store.consume()).toBeUndefined()
     expect(deleteFile).not.toHaveBeenCalled()
   })
 })
@@ -1703,18 +1743,20 @@ export interface ScreenshotStore {
   /** The path of the pending screenshot, or undefined when none is pending. */
   pendingPath: () => string | undefined
   /**
-   * Returns the pending screenshot path and clears it, deleting the file.
-   * Returns undefined when nothing is pending. Called after a query has
-   * attached the screenshot so it is used exactly once.
+   * Returns the pending screenshot path and clears the pending slot. Returns
+   * undefined when nothing is pending. The file is left on disk so the Codex
+   * runner can attach it with `-i`; the runner deletes it after the query
+   * completes. Performs no I/O, so it is synchronous.
    */
-  consume: () => Promise<string | undefined>
+  consume: () => string | undefined
 }
 
 // Holds at most one pending screenshot. Sidecar screenshots arrive as base64
 // PNGs; this store decodes them to real files in the Codex scratch dir so the
 // Codex runner can attach them with `-i`. A new screenshot replaces the old
-// one (its file is deleted), and consuming the pending screenshot deletes its
-// file too, so screenshots never accumulate on disk.
+// one (its file is deleted). Consuming the pending screenshot only clears the
+// slot and returns the path: the Codex runner deletes the file after the
+// query, so the file survives long enough for codex to read it.
 export function createScreenshotStore(deps: ScreenshotStoreDeps): ScreenshotStore {
   const screenshotsDir = join(deps.scratchRoot, 'screenshots')
   let pending: string | undefined
@@ -1738,11 +1780,10 @@ export function createScreenshotStore(deps: ScreenshotStoreDeps): ScreenshotStor
     return pending
   }
 
-  async function consume(): Promise<string | undefined> {
+  function consume(): string | undefined {
     const path = pending
     if (!path) return undefined
     pending = undefined
-    await deps.deleteFile(path).catch(() => {})
     return path
   }
 
@@ -2810,9 +2851,8 @@ Then extend the `registerIpcHandlers` call. Replace the existing `registerIpcHan
     // A transcript-and-screenshot-aware query. The pending screenshot (if any)
     // is consumed here so it is attached to exactly one query.
     onAskContextQuestion: (request) => {
-      void screenshotStore.consume().then((screenshotPath) => {
-        void codexService.handleContextAsk(request, screenshotPath)
-      })
+      const screenshotPath = screenshotStore.consume()
+      void codexService.handleContextAsk(request, screenshotPath)
     },
     // Starting a listening session resets the rolling audio state and starts
     // the Swift sidecar capturing system audio and the microphone.
@@ -3171,7 +3211,7 @@ Executed from the repository root on 2026-05-22 on branch `build/phase-5-context
 - **Summarizer:** pure heuristic char-budgeted compaction, no background Codex call. Recent segments verbatim plus a digest of older segments.
 - **Session vs ListenToggle:** the session manager supersedes the bare listen toggle conceptually but reuses the `ListenToggle` component and the `useTranscript` capture plumbing unchanged; `useSession` composes `useTranscript`.
 - **Insight heuristic:** pure rule-based. Questions = trailing `?` or interrogative opener; keywords = a curated salient-term list. No model.
-- **Screenshot location:** PNGs written to `<userData>/.codex-scratch/screenshots/`, attached via `-i`, deleted after the query consumes them.
+- **Screenshot location:** PNGs written to `<userData>/.codex-scratch/screenshots/`, attached via `-i`, deleted by the Codex runner after the query completes.
 
 ## Manual checklist
 
@@ -3219,7 +3259,7 @@ This plan has **15 tasks**.
 **1. Spec and roadmap coverage.** Every Phase 5 roadmap item (T5.1 to T5.6) maps to at least one task:
 
 - **T5.1 Rolling transcript summarizer:** Task 1 adds the `CONTEXT` constants (recent-segment count, older-segment char budget, marker). Task 3 implements `transcript-context.ts`, a pure, deterministic, char-budgeted summarizer with no Codex call (recent segments verbatim plus a budgeted digest of older segments), unit-tested with 6 cases, and rewrites `prompt-builder.ts` to be transcript-aware. Task 4's `codex-service.ts` `handleContextAsk` calls `buildTranscriptContext` so every context query carries the bounded transcript. The decision (heuristic, not a Codex call) is recorded with its rationale.
-- **T5.2 Screenshot context attachment:** Task 2 adds the `-i` image flag to `codex-args.ts`. Task 8 implements `screenshot-store.ts`, which decodes the sidecar's base64 PNG to a file in the Codex scratch dir, holds one pending screenshot, and deletes it after use. Task 9 adds the `RequestScreenshot` IPC channel; Task 10 adds the `requestScreenshot` preload method; Task 13 routes the Phase 4 sidecar `onScreenshot` event into the store and consumes the pending screenshot per context query (passing the path to `handleContextAsk`); Task 14 adds the visible Screenshot button and the `Cmd+Shift+S` hotkey. The normal text-query path still works: `handleAsk` is untouched and `handleContextAsk` falls back to a plain query when `screenshot` is false or no path is pending (covered by a `codex-service` test case).
+- **T5.2 Screenshot context attachment:** Task 2 adds the `-i` image flag to `codex-args.ts`. Task 8 implements `screenshot-store.ts`, which decodes the sidecar's base64 PNG to a file in the Codex scratch dir and holds one pending screenshot; its `consume()` returns the path and clears the pending slot without deleting the file, and the Codex runner deletes the file in its `finally` block after the query. Task 9 adds the `RequestScreenshot` IPC channel; Task 10 adds the `requestScreenshot` preload method; Task 13 routes the Phase 4 sidecar `onScreenshot` event into the store and consumes the pending screenshot per context query (passing the path to `handleContextAsk`); Task 14 adds the visible Screenshot button and the `Cmd+Shift+S` hotkey. The normal text-query path still works: `handleAsk` is untouched and `handleContextAsk` falls back to a plain query when `screenshot` is false or no path is pending (covered by a `codex-service` test case).
 - **T5.3 Default Actions:** Task 5 implements `default-actions.ts`, the pure preset table of the five spec actions ("What should I say next", "Follow-up questions", "Fact check", "Recap", "Coding help (Smart Mode)"), each with an id, label, prompt template, and codex-arg modifiers; only `fact-check` carries `--search`. Task 2 adds `extraArgs` to `codex-args.ts` so `--search` flows through. Task 11 builds the `DefaultActions.tsx` row of black-and-white buttons. Task 14 wires each button to the context-ask path. Unit-tested in Task 5 (6 cases) and Task 11 (4 cases).
 - **T5.4 Dynamic insight detector:** Task 1 adds the `INSIGHTS` constants. Task 6 implements `insight-detector.ts`, a pure rule-based, fully deterministic detector (questions = trailing `?` or interrogative opener; keywords = curated list), unit-tested with 13 cases. Task 11 builds `InsightList.tsx`; Task 12 builds `useInsights.ts`; Task 14 renders the surface below the command bar and binds `Tab` to answer the first insight. The `Tab` hotkey is renderer-local (pinned fact 6).
 - **T5.5 Session manager:** Task 7 implements `session-manager.ts`, a pure immutable state machine (`idle`/`active`/`ended`), unit-tested with 11 cases. Task 12's `useSession.ts` composes `useTranscript` so a session start also starts capture and a stop also stops it. Task 14 feeds `ListenToggle` from the session and gates the insight surface on `active`. The decision section states explicitly how the session manager reconciles with `ListenToggle`: it supersedes the bare toggle conceptually while reusing the `ListenToggle` component and the `useTranscript` plumbing unchanged.
