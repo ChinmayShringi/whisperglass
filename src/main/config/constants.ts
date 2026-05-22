@@ -3,7 +3,7 @@ import type { HotkeyAction } from '../../shared/types'
 export const OVERLAY = {
   width: 720,
   height: 480,
-  marginTop: 24,
+  marginTop: 24
 } as const
 
 export const MOVE_STEP_PX = 40
@@ -18,5 +18,16 @@ export const GLOBAL_HOTKEYS: Record<string, HotkeyAction> = {
   'CommandOrControl+Up': 'move-up',
   'CommandOrControl+Down': 'move-down',
   'CommandOrControl+Left': 'move-left',
-  'CommandOrControl+Right': 'move-right',
+  'CommandOrControl+Right': 'move-right'
 }
+
+export const CODEX = {
+  // Absolute candidate locations for the codex binary, in priority order.
+  // Resolving an absolute path avoids a PATH-lookup hijack surface.
+  knownPaths: ['/opt/homebrew/bin/codex', '/usr/local/bin/codex'],
+  // Last-resort fallback when no absolute path can be resolved.
+  command: 'codex',
+  timeoutMs: 60_000,
+  scratchDirName: '.codex-scratch',
+  reasoningEffort: 'low'
+} as const

@@ -1,50 +1,45 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../../src/renderer/src/App'
 
+let askQuestion: ReturnType<typeof vi.fn>
+
 beforeEach(() => {
+  askQuestion = vi.fn()
   window.customcluely = {
     toggleInvisibility: vi.fn(),
-    onOverlayState: vi.fn(() => () => {})
+    onOverlayState: vi.fn(() => () => {}),
+    askQuestion,
+    onAnswerChunk: vi.fn(() => () => {}),
+    onAnswerDone: vi.fn(() => () => {}),
+    onAnswerError: vi.fn(() => () => {}),
+    onCodexStatus: vi.fn(() => () => {}),
   }
 })
 
 describe('App', () => {
-  it('renders the command bar and both panels', () => {
+  it('renders the command bar and the empty answer panel', () => {
     render(<App />)
     expect(screen.getByLabelText('Question input')).toBeInTheDocument()
-    expect(screen.getByText('No transcript yet')).toBeInTheDocument()
     expect(screen.getByText('No answer yet')).toBeInTheDocument()
   })
 
-  it('calls the preload toggleInvisibility when the eye toggle is clicked', async () => {
+  it('submitting a question calls askQuestion and shows the active question', async () => {
     render(<App />)
-    await userEvent.click(screen.getByRole('button', { name: 'Invisible: off' }))
-    expect(window.customcluely.toggleInvisibility).toHaveBeenCalledOnce()
+    const input = screen.getByLabelText('Question input')
+    await userEvent.type(input, 'What is a closure?')
+    await userEvent.click(screen.getByRole('button', { name: /ask/i }))
+    expect(askQuestion).toHaveBeenCalledOnce()
+    expect(askQuestion.mock.calls[0][0].question).toBe('What is a closure?')
+    expect(screen.getByText('What is a closure?')).toBeInTheDocument()
   })
 
-  it('renders the eye toggle in the OFF state initially', () => {
-    render(<App />)
-    expect(screen.getByRole('button', { name: 'Invisible: off' })).toBeInTheDocument()
-  })
-
-  it('subscribes to overlay state on mount', () => {
+  it('subscribes to overlay state, answer events, and Codex status', () => {
     render(<App />)
     expect(window.customcluely.onOverlayState).toHaveBeenCalled()
-  })
-
-  it('shows the typed text as the active question after submitting', async () => {
-    render(<App />)
-    const question = 'What is the capital of France?'
-    await userEvent.type(screen.getByLabelText('Question input'), question)
-    await userEvent.click(screen.getByRole('button', { name: 'Ask' }))
-    expect(screen.getByText(question)).toBeInTheDocument()
-  })
-
-  it('does not show an active question before any submit', () => {
-    render(<App />)
-    expect(screen.queryByText('What is the capital of France?')).not.toBeInTheDocument()
+    expect(window.customcluely.onAnswerChunk).toHaveBeenCalled()
+    expect(window.customcluely.onCodexStatus).toHaveBeenCalled()
   })
 })
