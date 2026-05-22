@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { IpcChannel } from '../../src/shared/types'
-import { WHISPER } from '../../src/main/config/constants'
+import { WHISPER, SIDECAR } from '../../src/main/config/constants'
 
 describe('IpcChannel', () => {
   it('keeps the Phase 1 overlay channels', () => {
@@ -26,7 +26,6 @@ describe('Phase 3 IpcChannel entries', () => {
   it('defines the transcription channels', () => {
     expect(IpcChannel.StartTranscription).toBe('transcription:start')
     expect(IpcChannel.StopTranscription).toBe('transcription:stop')
-    expect(IpcChannel.AudioFrame).toBe('transcription:audio-frame')
     expect(IpcChannel.TranscriptUpdate).toBe('transcription:update')
     expect(IpcChannel.TranscriptionStatus).toBe('transcription:status')
   })
@@ -44,5 +43,26 @@ describe('WHISPER constants', () => {
     expect(WHISPER.modelUrl).toBe(
       'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin'
     )
+  })
+})
+
+describe('Phase 4 IpcChannel entries', () => {
+  it('defines the sidecar status and screenshot channels', () => {
+    expect(IpcChannel.SidecarStatus).toBe('sidecar:status')
+    expect(IpcChannel.Screenshot).toBe('sidecar:screenshot')
+  })
+
+  it('no longer defines the renderer AudioFrame channel', () => {
+    expect((IpcChannel as Record<string, string>).AudioFrame).toBeUndefined()
+  })
+})
+
+describe('SIDECAR constants', () => {
+  it('pins the binary name, app bundle id, and supervisor timings', () => {
+    expect(SIDECAR.binaryName).toBe('customcluely-sidecar')
+    expect(SIDECAR.appBundleId).toBe('com.customcluely.app')
+    expect(SIDECAR.stableUptimeMs).toBe(10_000)
+    expect(SIDECAR.maxBackoffMs).toBe(8_000)
+    expect(SIDECAR.baseBackoffMs).toBe(1_000)
   })
 })

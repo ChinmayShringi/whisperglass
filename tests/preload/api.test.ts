@@ -76,7 +76,7 @@ describe('createOverlayApi', () => {
   })
 })
 
-describe('createOverlayApi transcription methods', () => {
+describe('createOverlayApi transcription and sidecar methods', () => {
   function makeIpc(): IpcRendererLike & {
     sent: { channel: string; args: unknown[] }[]
     listeners: Record<string, (e: unknown, p: unknown) => void>
@@ -106,11 +106,9 @@ describe('createOverlayApi transcription methods', () => {
     expect(ipc.sent[0].channel).toBe(IpcChannel.StopTranscription)
   })
 
-  it('sendAudioFrame sends the frame payload on the AudioFrame channel', () => {
+  it('does not expose a sendAudioFrame method', () => {
     const ipc = makeIpc()
-    createOverlayApi(ipc).sendAudioFrame({ pcmBase64: 'AAAA' })
-    expect(ipc.sent[0].channel).toBe(IpcChannel.AudioFrame)
-    expect(ipc.sent[0].args[0]).toEqual({ pcmBase64: 'AAAA' })
+    expect((createOverlayApi(ipc) as Record<string, unknown>).sendAudioFrame).toBeUndefined()
   })
 
   it('onTranscriptUpdate subscribes to the TranscriptUpdate channel', () => {
@@ -127,5 +125,21 @@ describe('createOverlayApi transcription methods', () => {
     createOverlayApi(ipc).onTranscriptionStatus((payload) => received.push(payload))
     ipc.listeners[IpcChannel.TranscriptionStatus]({}, { ready: true, detail: 'ok' })
     expect(received).toEqual([{ ready: true, detail: 'ok' }])
+  })
+
+  it('onSidecarStatus subscribes to the SidecarStatus channel', () => {
+    const ipc = makeIpc()
+    const received: unknown[] = []
+    createOverlayApi(ipc).onSidecarStatus((payload) => received.push(payload))
+    ipc.listeners[IpcChannel.SidecarStatus]({}, { state: 'paused', detail: 'reconnecting' })
+    expect(received).toEqual([{ state: 'paused', detail: 'reconnecting' }])
+  })
+
+  it('onScreenshot subscribes to the Screenshot channel', () => {
+    const ipc = makeIpc()
+    const received: unknown[] = []
+    createOverlayApi(ipc).onScreenshot((payload) => received.push(payload))
+    ipc.listeners[IpcChannel.Screenshot]({}, { format: 'png', dataBase64: 'aW1n' })
+    expect(received).toEqual([{ format: 'png', dataBase64: 'aW1n' }])
   })
 })

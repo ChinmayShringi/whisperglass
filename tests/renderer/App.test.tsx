@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../../src/renderer/src/App'
-import type { TranscriptUpdatePayload } from '../../src/shared/types'
+import type { TranscriptUpdatePayload, SidecarStatusPayload } from '../../src/shared/types'
 
 let askQuestion: ReturnType<typeof vi.fn>
 
@@ -19,9 +19,10 @@ beforeEach(() => {
     onCodexStatus: vi.fn(() => () => {}),
     startTranscription: vi.fn(),
     stopTranscription: vi.fn(),
-    sendAudioFrame: vi.fn(),
     onTranscriptUpdate: vi.fn(() => () => {}),
-    onTranscriptionStatus: vi.fn(() => () => {})
+    onTranscriptionStatus: vi.fn(() => () => {}),
+    onSidecarStatus: vi.fn(() => () => {}),
+    onScreenshot: vi.fn(() => () => {})
   }
 })
 
@@ -50,11 +51,13 @@ describe('App', () => {
   })
 })
 
-describe('App live transcript wiring', () => {
+describe('App live transcript and sidecar wiring', () => {
   let updateCb: (p: TranscriptUpdatePayload) => void = () => {}
+  let sidecarCb: (p: SidecarStatusPayload) => void = () => {}
 
   beforeEach(() => {
     updateCb = () => {}
+    sidecarCb = () => {}
     window.customcluely = {
       toggleInvisibility: vi.fn(),
       onOverlayState: vi.fn(() => () => {}),
@@ -65,24 +68,40 @@ describe('App live transcript wiring', () => {
       onCodexStatus: vi.fn(() => () => {}),
       startTranscription: vi.fn(),
       stopTranscription: vi.fn(),
-      sendAudioFrame: vi.fn(),
       onTranscriptUpdate: vi.fn((cb: (p: TranscriptUpdatePayload) => void) => {
         updateCb = cb
         return () => {}
       }),
-      onTranscriptionStatus: vi.fn(() => () => {})
+      onTranscriptionStatus: vi.fn(() => () => {}),
+      onSidecarStatus: vi.fn((cb: (p: SidecarStatusPayload) => void) => {
+        sidecarCb = cb
+        return () => {}
+      }),
+      onScreenshot: vi.fn(() => () => {})
     }
   })
 
   it('renders a transcript segment pushed from the main process', () => {
     render(<App />)
-    act(() => updateCb({ segments: [{ id: 's1', speaker: 'you', text: 'live transcript line' }] }))
-    expect(screen.getByText('live transcript line')).toBeInTheDocument()
+    act(() => updateCb({ segments: [{ id: 's1', speaker: 'them', text: 'system audio line' }] }))
+    expect(screen.getByText('system audio line')).toBeInTheDocument()
   })
 
   it('renders a Start listening control and does not auto-start listening', () => {
     render(<App />)
     expect(screen.getByRole('button', { name: 'Listening: off' })).toBeInTheDocument()
     expect(window.customcluely.startTranscription).not.toHaveBeenCalled()
+  })
+
+  it('shows an audio-paused banner when the sidecar reports a paused state', () => {
+    render(<App />)
+    act(() => sidecarCb({ state: 'paused', detail: 'Audio paused, reconnecting capture...' }))
+    expect(screen.getByText('Audio paused, reconnecting capture...')).toBeInTheDocument()
+  })
+
+  it('does not show the audio-paused banner while the sidecar is capturing', () => {
+    render(<App />)
+    act(() => sidecarCb({ state: 'capturing', detail: 'ok' }))
+    expect(screen.queryByText('Audio paused, reconnecting capture...')).not.toBeInTheDocument()
   })
 })

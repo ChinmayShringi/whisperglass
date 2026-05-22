@@ -55,3 +55,20 @@ export const WHISPER = {
   timeoutMs: 30_000,
   scratchDirName: '.whisper-scratch'
 } as const
+
+export const SIDECAR = {
+  // The Swift capture sidecar binary, built from source by
+  // scripts/setup-sidecar.sh and committed under resources/sidecar/.
+  binaryName: 'customcluely-sidecar',
+  // The Electron app's bundle id. Sent on the `start` command so the sidecar
+  // can exclude the app's own overlay windows from screenshots.
+  appBundleId: 'com.customcluely.app',
+  // Capture sources requested on `start`, matching the protocol vocabulary.
+  captureSources: ['systemAudio', 'mic'],
+  // Supervisor restart backoff: 1 s, 2 s, 4 s, 8 s, then capped at 8 s.
+  baseBackoffMs: 1_000,
+  maxBackoffMs: 8_000,
+  // A sidecar that stays up at least this long is considered stable, so the
+  // backoff counter resets to the base delay for the next crash.
+  stableUptimeMs: 10_000
+} as const
