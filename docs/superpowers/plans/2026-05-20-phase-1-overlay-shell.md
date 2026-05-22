@@ -53,7 +53,7 @@ Created or modified across the tasks:
 
 This is a setup task, verified by a passing build and a passing smoke test rather than by TDD.
 
-- [ ] **Step 1: Scaffold electron-vite into a temp directory**
+- [x] **Step 1: Scaffold electron-vite into a temp directory**
 
 Run:
 ```bash
@@ -61,7 +61,7 @@ npm create @quick-start/electron@latest /tmp/customcluely-scaffold -- --template
 ```
 If the tool prompts, accept defaults (no extra add-ons). Expected result: `/tmp/customcluely-scaffold` contains `electron.vite.config.ts`, `package.json`, `tsconfig*.json`, `electron-builder.yml`, and `src/main`, `src/preload`, `src/renderer`.
 
-- [ ] **Step 2: Move the scaffold into the project, preserving git and the spec**
+- [x] **Step 2: Move the scaffold into the project, preserving git and the spec**
 
 Run:
 ```bash
@@ -72,7 +72,7 @@ rm -rf /tmp/customcluely-scaffold
 ```
 Expected: the project now has the scaffold files plus the pre-existing `docs/` and `.git/`.
 
-- [ ] **Step 3: Install dependencies and test tooling**
+- [x] **Step 3: Install dependencies and test tooling**
 
 Run:
 ```bash
@@ -81,7 +81,7 @@ npm install --save-dev vitest @vitejs/plugin-react @testing-library/react @testi
 ```
 Expected: install completes with no error.
 
-- [ ] **Step 4: Add the Vitest config and setup file**
+- [x] **Step 4: Add the Vitest config and setup file**
 
 Create `vitest.config.ts`:
 ```ts
@@ -109,7 +109,7 @@ Add to `package.json` scripts:
 "test:watch": "vitest"
 ```
 
-- [ ] **Step 5: Write the smoke test**
+- [x] **Step 5: Write the smoke test**
 
 Create `tests/smoke.test.ts`:
 ```ts
@@ -122,7 +122,7 @@ describe('test runner', () => {
 })
 ```
 
-- [ ] **Step 6: Verify the test runner and the build**
+- [x] **Step 6: Verify the test runner and the build**
 
 Run: `npm test`
 Expected: 1 passed.
@@ -130,7 +130,7 @@ Expected: 1 passed.
 Run: `npm run build`
 Expected: electron-vite build completes with no error.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -147,7 +147,7 @@ git commit -m "chore: scaffold electron-vite project with vitest"
 
 Setup task, verified by `npm run typecheck`.
 
-- [ ] **Step 1: Create the shared types**
+- [x] **Step 1: Create the shared types**
 
 Create `src/shared/types.ts`:
 ```ts
@@ -178,7 +178,7 @@ export interface TranscriptSegment {
 }
 ```
 
-- [ ] **Step 2: Create the main-process constants**
+- [x] **Step 2: Create the main-process constants**
 
 Create `src/main/config/constants.ts`:
 ```ts
@@ -206,12 +206,12 @@ export const GLOBAL_HOTKEYS: Record<string, HotkeyAction> = {
 }
 ```
 
-- [ ] **Step 3: Verify types compile**
+- [x] **Step 3: Verify types compile**
 
 Run: `npm run typecheck`
 Expected: no type errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/shared/types.ts src/main/config/constants.ts
@@ -227,7 +227,7 @@ git commit -m "feat: add shared types and main-process constants"
 - Create: `src/main/windows/overlay-window.ts`
 - Test: `tests/main/windows/overlay-window-options.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/main/windows/overlay-window-options.test.ts`:
 ```ts
@@ -259,12 +259,12 @@ describe('buildOverlayWindowOptions', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/overlay-window-options.test.ts`
 Expected: FAIL, cannot find module `overlay-window-options`.
 
-- [ ] **Step 3: Implement the options builder**
+- [x] **Step 3: Implement the options builder**
 
 Create `src/main/windows/overlay-window-options.ts`:
 ```ts
@@ -297,12 +297,12 @@ export function buildOverlayWindowOptions(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/overlay-window-options.test.ts`
 Expected: 4 passed.
 
-- [ ] **Step 5: Implement the window factory glue**
+- [x] **Step 5: Implement the window factory glue**
 
 Create `src/main/windows/overlay-window.ts`:
 ```ts
@@ -322,12 +322,12 @@ export function createOverlayWindow(): BrowserWindow {
 }
 ```
 
-- [ ] **Step 6: Verify the build**
+- [x] **Step 6: Verify the build**
 
 Run: `npm run typecheck`
 Expected: no type errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/main/windows/overlay-window-options.ts src/main/windows/overlay-window.ts tests/main/windows/overlay-window-options.test.ts
@@ -344,7 +344,7 @@ git commit -m "feat: add overlay window factory"
 - Test: `tests/main/windows/overlay-state.test.ts`
 - Test: `tests/main/windows/overlay-controller.test.ts`
 
-- [ ] **Step 1: Write the failing test for the state reducers**
+- [x] **Step 1: Write the failing test for the state reducers**
 
 Create `tests/main/windows/overlay-state.test.ts`:
 ```ts
@@ -387,12 +387,12 @@ describe('overlay-state', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/overlay-state.test.ts`
 Expected: FAIL, cannot find module `overlay-state`.
 
-- [ ] **Step 3: Implement the state reducers**
+- [x] **Step 3: Implement the state reducers**
 
 Create `src/main/windows/overlay-state.ts`:
 ```ts
@@ -415,12 +415,12 @@ export function setVisible(state: OverlayState, visible: boolean): OverlayState 
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/overlay-state.test.ts`
 Expected: 4 passed.
 
-- [ ] **Step 5: Write the failing test for the controller**
+- [x] **Step 5: Write the failing test for the controller**
 
 Create `tests/main/windows/overlay-controller.test.ts`:
 ```ts
@@ -461,12 +461,12 @@ describe('applyOverlayState', () => {
 })
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/overlay-controller.test.ts`
 Expected: FAIL, cannot find module `overlay-controller`.
 
-- [ ] **Step 7: Implement the controller**
+- [x] **Step 7: Implement the controller**
 
 Create `src/main/windows/overlay-controller.ts`:
 ```ts
@@ -490,12 +490,12 @@ export function applyOverlayState(win: OverlayWindowLike, state: OverlayState): 
 }
 ```
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/overlay-controller.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/main/windows/overlay-state.ts src/main/windows/overlay-controller.ts tests/main/windows/overlay-state.test.ts tests/main/windows/overlay-controller.test.ts
@@ -512,7 +512,7 @@ git commit -m "feat: add overlay state reducers and content-protection controlle
 - Test: `tests/main/hotkeys/hotkey-map.test.ts`
 - Test: `tests/main/hotkeys/global-hotkeys.test.ts`
 
-- [ ] **Step 1: Write the failing test for the resolver**
+- [x] **Step 1: Write the failing test for the resolver**
 
 Create `tests/main/hotkeys/hotkey-map.test.ts`:
 ```ts
@@ -530,12 +530,12 @@ describe('resolveHotkeyAction', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/hotkeys/hotkey-map.test.ts`
 Expected: FAIL, cannot find module `hotkey-map`.
 
-- [ ] **Step 3: Implement the resolver**
+- [x] **Step 3: Implement the resolver**
 
 Create `src/main/hotkeys/hotkey-map.ts`:
 ```ts
@@ -547,12 +547,12 @@ export function resolveHotkeyAction(accelerator: string): HotkeyAction | undefin
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/hotkeys/hotkey-map.test.ts`
 Expected: 2 passed.
 
-- [ ] **Step 5: Write the failing test for the registrar**
+- [x] **Step 5: Write the failing test for the registrar**
 
 Create `tests/main/hotkeys/global-hotkeys.test.ts`:
 ```ts
@@ -585,12 +585,12 @@ describe('registerGlobalHotkeys', () => {
 })
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/hotkeys/global-hotkeys.test.ts`
 Expected: FAIL, cannot find module `global-hotkeys`.
 
-- [ ] **Step 7: Implement the registrar**
+- [x] **Step 7: Implement the registrar**
 
 Create `src/main/hotkeys/global-hotkeys.ts`:
 ```ts
@@ -616,12 +616,12 @@ export function unregisterGlobalHotkeys(globalShortcut: GlobalShortcutLike): voi
 }
 ```
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/hotkeys/global-hotkeys.test.ts`
 Expected: 2 passed.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/main/hotkeys/ tests/main/hotkeys/
@@ -640,7 +640,7 @@ git commit -m "feat: add global hotkey registry"
 - Test: `tests/preload/api.test.ts`
 - Test: `tests/main/ipc/ipc-handlers.test.ts`
 
-- [ ] **Step 1: Write the failing test for the preload API**
+- [x] **Step 1: Write the failing test for the preload API**
 
 Create `tests/preload/api.test.ts`:
 ```ts
@@ -672,12 +672,12 @@ describe('createOverlayApi', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/preload/api.test.ts`
 Expected: FAIL, cannot find module `api`.
 
-- [ ] **Step 3: Implement the preload API factory**
+- [x] **Step 3: Implement the preload API factory**
 
 Create `src/preload/api.ts`:
 ```ts
@@ -707,12 +707,12 @@ export function createOverlayApi(ipcRenderer: IpcRendererLike): OverlayApi {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/preload/api.test.ts`
 Expected: 2 passed.
 
-- [ ] **Step 5: Wire the preload entry point**
+- [x] **Step 5: Wire the preload entry point**
 
 Replace the contents of `src/preload/index.ts`:
 ```ts
@@ -740,7 +740,7 @@ declare global {
 }
 ```
 
-- [ ] **Step 6: Write the failing test for the main IPC handlers**
+- [x] **Step 6: Write the failing test for the main IPC handlers**
 
 Create `tests/main/ipc/ipc-handlers.test.ts`:
 ```ts
@@ -764,12 +764,12 @@ describe('registerIpcHandlers', () => {
 })
 ```
 
-- [ ] **Step 7: Run the test to verify it fails**
+- [x] **Step 7: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/ipc/ipc-handlers.test.ts`
 Expected: FAIL, cannot find module `ipc-handlers`.
 
-- [ ] **Step 8: Implement the main IPC handlers**
+- [x] **Step 8: Implement the main IPC handlers**
 
 Create `src/main/ipc/ipc-handlers.ts`:
 ```ts
@@ -788,12 +788,12 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, deps: IpcHandlerDeps):
 }
 ```
 
-- [ ] **Step 9: Run the test to verify it passes**
+- [x] **Step 9: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/ipc/ipc-handlers.test.ts`
 Expected: 1 passed.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/preload/ src/main/ipc/ tests/preload/ tests/main/ipc/
@@ -808,7 +808,7 @@ git commit -m "feat: add IPC bridge between main and renderer"
 - Create: `src/renderer/src/components/CommandBar.tsx`
 - Test: `tests/renderer/components/CommandBar.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/renderer/components/CommandBar.test.tsx`:
 ```tsx
@@ -844,12 +844,12 @@ describe('CommandBar', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/renderer/components/CommandBar.test.tsx`
 Expected: FAIL, cannot find module `CommandBar`.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 Create `src/renderer/src/components/CommandBar.tsx`:
 ```tsx
@@ -900,12 +900,12 @@ export function CommandBar({ onSubmit, disabled = false }: CommandBarProps): JSX
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/renderer/components/CommandBar.test.tsx`
 Expected: 3 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/components/CommandBar.tsx tests/renderer/components/CommandBar.test.tsx
@@ -922,7 +922,7 @@ git commit -m "feat: add CommandBar component"
 - Test: `tests/renderer/components/TranscriptPanel.test.tsx`
 - Test: `tests/renderer/components/AnswerPanel.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/renderer/components/TranscriptPanel.test.tsx`:
 ```tsx
@@ -969,12 +969,12 @@ describe('AnswerPanel', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/renderer/components/TranscriptPanel.test.tsx tests/renderer/components/AnswerPanel.test.tsx`
 Expected: FAIL, cannot find the modules.
 
-- [ ] **Step 3: Implement the panels**
+- [x] **Step 3: Implement the panels**
 
 Create `src/renderer/src/components/TranscriptPanel.tsx`:
 ```tsx
@@ -1021,12 +1021,12 @@ export function AnswerPanel({ answer }: AnswerPanelProps): JSX.Element {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/renderer/components/TranscriptPanel.test.tsx tests/renderer/components/AnswerPanel.test.tsx`
 Expected: 4 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/components/TranscriptPanel.tsx src/renderer/src/components/AnswerPanel.tsx tests/renderer/components/TranscriptPanel.test.tsx tests/renderer/components/AnswerPanel.test.tsx
@@ -1043,7 +1043,7 @@ git commit -m "feat: add transcript and answer panels"
 - Test: `tests/renderer/components/EyeToggle.test.tsx`
 - Test: `tests/renderer/components/SetupBanner.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/renderer/components/EyeToggle.test.tsx`:
 ```tsx
@@ -1088,12 +1088,12 @@ describe('SetupBanner', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/renderer/components/EyeToggle.test.tsx tests/renderer/components/SetupBanner.test.tsx`
 Expected: FAIL, cannot find the modules.
 
-- [ ] **Step 3: Implement the components**
+- [x] **Step 3: Implement the components**
 
 Create `src/renderer/src/components/EyeToggle.tsx`:
 ```tsx
@@ -1131,12 +1131,12 @@ export function SetupBanner({ message }: SetupBannerProps): JSX.Element | null {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/renderer/components/EyeToggle.test.tsx tests/renderer/components/SetupBanner.test.tsx`
 Expected: 4 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/renderer/src/components/EyeToggle.tsx src/renderer/src/components/SetupBanner.tsx tests/renderer/components/EyeToggle.test.tsx tests/renderer/components/SetupBanner.test.tsx
@@ -1152,7 +1152,7 @@ git commit -m "feat: add EyeToggle and SetupBanner components"
 - Create: `src/renderer/src/styles/theme.css`
 - Test: `tests/renderer/App.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/renderer/App.test.tsx`:
 ```tsx
@@ -1185,12 +1185,12 @@ describe('App', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/renderer/App.test.tsx`
 Expected: FAIL, the scaffold `App` does not export `App` or render these elements.
 
-- [ ] **Step 3: Implement the App composition**
+- [x] **Step 3: Implement the App composition**
 
 Replace the contents of `src/renderer/src/App.tsx`:
 ```tsx
@@ -1234,7 +1234,7 @@ export function App(): JSX.Element {
 export default App
 ```
 
-- [ ] **Step 4: Create the black-and-white theme**
+- [x] **Step 4: Create the black-and-white theme**
 
 Create `src/renderer/src/styles/theme.css`:
 ```css
@@ -1311,16 +1311,16 @@ body {
 }
 ```
 
-- [ ] **Step 5: Ensure the renderer entry point renders the named export**
+- [x] **Step 5: Ensure the renderer entry point renders the named export**
 
 Open `src/renderer/src/main.tsx`. Confirm it imports and renders `App`. If it uses a default import, leave it; the App file exports both named and default. No change needed unless the import path is broken.
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `npx vitest run tests/renderer/App.test.tsx`
 Expected: 2 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/renderer/src/App.tsx src/renderer/src/styles/theme.css tests/renderer/App.test.tsx
@@ -1336,7 +1336,7 @@ git commit -m "feat: compose overlay UI with black-and-white theme"
 - Modify: `src/main/index.ts` (replace scaffold contents)
 - Test: `tests/main/windows/position.test.ts`
 
-- [ ] **Step 1: Write the failing test for the position math**
+- [x] **Step 1: Write the failing test for the position math**
 
 Create `tests/main/windows/position.test.ts`:
 ```ts
@@ -1358,12 +1358,12 @@ describe('nextPosition', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/main/windows/position.test.ts`
 Expected: FAIL, cannot find module `position`.
 
-- [ ] **Step 3: Implement the position math**
+- [x] **Step 3: Implement the position math**
 
 Create `src/main/windows/position.ts`:
 ```ts
@@ -1390,12 +1390,12 @@ export function nextPosition(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/main/windows/position.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 5: Wire everything in the main entry point**
+- [x] **Step 5: Wire everything in the main entry point**
 
 Replace the contents of `src/main/index.ts`:
 ```ts
@@ -1481,7 +1481,7 @@ app.on('window-all-closed', () => {
 })
 ```
 
-- [ ] **Step 6: Verify the full build and the test suite**
+- [x] **Step 6: Verify the full build and the test suite**
 
 Run: `npm run typecheck`
 Expected: no type errors.
@@ -1492,7 +1492,7 @@ Expected: every test passes (smoke plus all Phase 1 tests).
 Run: `npm run build`
 Expected: build completes with no error.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/main/windows/position.ts src/main/index.ts tests/main/windows/position.test.ts
@@ -1551,3 +1551,17 @@ git commit -m "docs: record Phase 1 verification results"
 - `npm test` passes with all Phase 1 tests green.
 - `npm run typecheck` and `npm run build` succeed.
 - The Phase 1 verification record confirms the overlay appears, hotkeys work, and `setContentProtection` hides the overlay from a screen recording when invisibility is ON.
+
+---
+
+## Task T1.13: Phase 1 review cleanup
+
+Addressed the final Phase 1 code review by applying five cleanup fixes:
+
+- Deleted the orphaned `src/main/hotkeys/hotkey-map.ts` and its test `tests/main/hotkeys/hotkey-map.test.ts` (dead code, removed 6 tests).
+- Fixed a misleading test title in `tests/main/windows/overlay-state.test.ts`.
+- Stripped the dead `electron`/`api` scaffold exposures from `src/preload/index.ts` and `src/preload/index.d.ts`.
+- Corrected `package.json` metadata: set `author` and `description`, removed the unused `homepage` field.
+- Moved the `ready-to-show` listener registration before page load in `src/main/index.ts` so the event is not missed.
+
+Suite is 74/74 passing; `npm run typecheck` and `npm run build` are clean.

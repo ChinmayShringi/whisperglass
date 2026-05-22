@@ -2,17 +2,19 @@
 node_modules/
 
 # Build output
-dist/
 out/
-build/
+dist/
 *.app
 *.dmg
 
-# Swift
+# Caches
+.eslintcache
+
+# Swift sidecar build artifacts
 sidecar/.build/
 sidecar/build/
 
-# Bundled model binaries (large, downloaded on first run)
+# Bundled model binaries (downloaded on first run, too large for git)
 resources/whisper/*.bin
 
 # Logs and scratch
@@ -25,3 +27,4 @@ resources/whisper/*.bin
 # Env
 .env
 .env.local
+*.local
