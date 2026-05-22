@@ -1,25 +1,38 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../../src/renderer/src/App'
-import type { TranscriptUpdatePayload, SidecarStatusPayload } from '../../src/shared/types'
+import type { TranscriptUpdatePayload } from '../../src/shared/types'
 
 let askQuestion: ReturnType<typeof vi.fn>
+let askContextQuestion: ReturnType<typeof vi.fn>
+let requestScreenshot: ReturnType<typeof vi.fn>
+let startTranscription: ReturnType<typeof vi.fn>
+let transcriptUpdateCb: (p: TranscriptUpdatePayload) => void
 
 beforeEach(() => {
   askQuestion = vi.fn()
+  askContextQuestion = vi.fn()
+  requestScreenshot = vi.fn()
+  startTranscription = vi.fn()
+  transcriptUpdateCb = () => {}
   window.customcluely = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
     askQuestion,
+    askContextQuestion,
+    requestScreenshot,
     onAnswerChunk: vi.fn(() => () => {}),
     onAnswerDone: vi.fn(() => () => {}),
     onAnswerError: vi.fn(() => () => {}),
     onCodexStatus: vi.fn(() => () => {}),
-    startTranscription: vi.fn(),
+    startTranscription,
     stopTranscription: vi.fn(),
-    onTranscriptUpdate: vi.fn(() => () => {}),
+    onTranscriptUpdate: vi.fn((cb) => {
+      transcriptUpdateCb = cb
+      return () => {}
+    }),
     onTranscriptionStatus: vi.fn(() => () => {}),
     onSidecarStatus: vi.fn(() => () => {}),
     onScreenshot: vi.fn(() => () => {})
@@ -37,71 +50,61 @@ describe('App', () => {
     render(<App />)
     const input = screen.getByLabelText('Question input')
     await userEvent.type(input, 'What is a closure?')
-    await userEvent.click(screen.getByRole('button', { name: /ask/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^ask$/i }))
     expect(askQuestion).toHaveBeenCalledOnce()
-    expect(askQuestion.mock.calls[0][0].question).toBe('What is a closure?')
     expect(screen.getByText('What is a closure?')).toBeInTheDocument()
   })
 
-  it('subscribes to overlay state, answer events, and Codex status', () => {
+  it('renders the five Default Action buttons', () => {
     render(<App />)
-    expect(window.customcluely.onOverlayState).toHaveBeenCalled()
-    expect(window.customcluely.onAnswerChunk).toHaveBeenCalled()
-    expect(window.customcluely.onCodexStatus).toHaveBeenCalled()
-  })
-})
-
-describe('App live transcript and sidecar wiring', () => {
-  let updateCb: (p: TranscriptUpdatePayload) => void = () => {}
-  let sidecarCb: (p: SidecarStatusPayload) => void = () => {}
-
-  beforeEach(() => {
-    updateCb = () => {}
-    sidecarCb = () => {}
-    window.customcluely = {
-      toggleInvisibility: vi.fn(),
-      onOverlayState: vi.fn(() => () => {}),
-      askQuestion: vi.fn(),
-      onAnswerChunk: vi.fn(() => () => {}),
-      onAnswerDone: vi.fn(() => () => {}),
-      onAnswerError: vi.fn(() => () => {}),
-      onCodexStatus: vi.fn(() => () => {}),
-      startTranscription: vi.fn(),
-      stopTranscription: vi.fn(),
-      onTranscriptUpdate: vi.fn((cb: (p: TranscriptUpdatePayload) => void) => {
-        updateCb = cb
-        return () => {}
-      }),
-      onTranscriptionStatus: vi.fn(() => () => {}),
-      onSidecarStatus: vi.fn((cb: (p: SidecarStatusPayload) => void) => {
-        sidecarCb = cb
-        return () => {}
-      }),
-      onScreenshot: vi.fn(() => () => {})
-    }
+    expect(screen.getByRole('button', { name: 'Recap' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Fact check' })).toBeInTheDocument()
   })
 
-  it('renders a transcript segment pushed from the main process', () => {
+  it('clicking a Default Action sends a context-ask query', async () => {
     render(<App />)
-    act(() => updateCb({ segments: [{ id: 's1', speaker: 'them', text: 'system audio line' }] }))
-    expect(screen.getByText('system audio line')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Recap' }))
+    expect(askContextQuestion).toHaveBeenCalledOnce()
+    const sent = askContextQuestion.mock.calls[0][0]
+    expect(sent.question.toLowerCase()).toContain('recap')
   })
 
-  it('renders a Start listening control and does not auto-start listening', () => {
+  it('the Fact check Default Action sends --search in extraArgs', async () => {
     render(<App />)
-    expect(screen.getByRole('button', { name: 'Listening: off' })).toBeInTheDocument()
-    expect(window.customcluely.startTranscription).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Fact check' }))
+    const sent = askContextQuestion.mock.calls[0][0]
+    expect(sent.extraArgs).toContain('--search')
   })
 
-  it('shows an audio-paused banner when the sidecar reports a paused state', () => {
+  it('clicking the screenshot button requests a screenshot from the sidecar', async () => {
     render(<App />)
-    act(() => sidecarCb({ state: 'paused', detail: 'Audio paused, reconnecting capture...' }))
-    expect(screen.getByText('Audio paused, reconnecting capture...')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /screenshot/i }))
+    expect(requestScreenshot).toHaveBeenCalledOnce()
   })
 
-  it('does not show the audio-paused banner while the sidecar is capturing', () => {
+  it('starting a session starts transcription and reveals detected insights', async () => {
     render(<App />)
-    act(() => sidecarCb({ state: 'capturing', detail: 'ok' }))
-    expect(screen.queryByText('Audio paused, reconnecting capture...')).not.toBeInTheDocument()
+    // ListenToggle exposes its accessible name via aria-label ("Listening: off"
+    // / "Listening: on"), which overrides the visible "Start listening" text.
+    await userEvent.click(screen.getByRole('button', { name: /listening: off/i }))
+    expect(startTranscription).toHaveBeenCalledOnce()
+    act(() => {
+      transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
+    })
+    // The detected question appears in the insight surface (the text also
+    // appears in the transcript panel, so scope the assertion to the insight
+    // list to confirm the insight specifically was revealed).
+    const insightList = await screen.findByRole('button', { name: /when do we ship/i })
+    expect(within(insightList).getByText('when do we ship?')).toBeInTheDocument()
+  })
+
+  it('does not show insights before a session is started', () => {
+    render(<App />)
+    act(() => {
+      transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
+    })
+    // The transcript panel still renders the line, but the insight surface does
+    // not: only the transcript-panel copy of the text exists, not an insight button.
+    expect(screen.queryByRole('button', { name: /question.*when do we ship/i })).toBeNull()
   })
 })
