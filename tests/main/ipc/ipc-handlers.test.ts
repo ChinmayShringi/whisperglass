@@ -3,7 +3,13 @@ import { registerIpcHandlers } from '../../../src/main/ipc/ipc-handlers'
 import { IpcChannel } from '../../../src/shared/types'
 
 function makeDeps() {
-  return { onToggleInvisibility: vi.fn(), onAskQuestion: vi.fn() }
+  return {
+    onToggleInvisibility: vi.fn(),
+    onAskQuestion: vi.fn(),
+    onStartTranscription: vi.fn(),
+    onStopTranscription: vi.fn(),
+    onAudioFrame: vi.fn()
+  }
 }
 
 describe('registerIpcHandlers', () => {
@@ -12,7 +18,7 @@ describe('registerIpcHandlers', () => {
     const ipcMain = {
       on: vi.fn((c: string, l: (...args: unknown[]) => void) => {
         handlers[c] = l
-      }),
+      })
     }
     const deps = makeDeps()
     registerIpcHandlers(ipcMain, deps)
@@ -25,7 +31,7 @@ describe('registerIpcHandlers', () => {
     const ipcMain = {
       on: vi.fn((c: string, l: (...args: unknown[]) => void) => {
         handlers[c] = l
-      }),
+      })
     }
     const deps = makeDeps()
     registerIpcHandlers(ipcMain, deps)
@@ -34,16 +40,49 @@ describe('registerIpcHandlers', () => {
     expect(deps.onAskQuestion).toHaveBeenCalledWith(request)
   })
 
-  it('registers handlers on both the ToggleInvisibility and AskQuestion channels', () => {
-    const ipcMain = { on: vi.fn() }
-    registerIpcHandlers(ipcMain, makeDeps())
-    expect(ipcMain.on).toHaveBeenCalledWith(IpcChannel.ToggleInvisibility, expect.any(Function))
-    expect(ipcMain.on).toHaveBeenCalledWith(IpcChannel.AskQuestion, expect.any(Function))
+  it('calls onStartTranscription when its channel receives a message', () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {}
+    const ipcMain = {
+      on: vi.fn((c: string, l: (...args: unknown[]) => void) => {
+        handlers[c] = l
+      })
+    }
+    const deps = makeDeps()
+    registerIpcHandlers(ipcMain, deps)
+    handlers[IpcChannel.StartTranscription]()
+    expect(deps.onStartTranscription).toHaveBeenCalledOnce()
   })
 
-  it('registers exactly two channel handlers', () => {
+  it('calls onStopTranscription when its channel receives a message', () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {}
+    const ipcMain = {
+      on: vi.fn((c: string, l: (...args: unknown[]) => void) => {
+        handlers[c] = l
+      })
+    }
+    const deps = makeDeps()
+    registerIpcHandlers(ipcMain, deps)
+    handlers[IpcChannel.StopTranscription]()
+    expect(deps.onStopTranscription).toHaveBeenCalledOnce()
+  })
+
+  it('forwards the audio frame payload when the AudioFrame channel receives a message', () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {}
+    const ipcMain = {
+      on: vi.fn((c: string, l: (...args: unknown[]) => void) => {
+        handlers[c] = l
+      })
+    }
+    const deps = makeDeps()
+    registerIpcHandlers(ipcMain, deps)
+    const frame = { pcmBase64: 'AAAA' }
+    handlers[IpcChannel.AudioFrame]({}, frame)
+    expect(deps.onAudioFrame).toHaveBeenCalledWith(frame)
+  })
+
+  it('registers exactly five channel handlers', () => {
     const ipcMain = { on: vi.fn() }
     registerIpcHandlers(ipcMain, makeDeps())
-    expect(ipcMain.on).toHaveBeenCalledTimes(2)
+    expect(ipcMain.on).toHaveBeenCalledTimes(5)
   })
 })
