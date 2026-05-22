@@ -8,9 +8,10 @@ export const IpcChannel = {
   CodexStatus: 'codex:status',
   StartTranscription: 'transcription:start',
   StopTranscription: 'transcription:stop',
-  AudioFrame: 'transcription:audio-frame',
   TranscriptUpdate: 'transcription:update',
-  TranscriptionStatus: 'transcription:status'
+  TranscriptionStatus: 'transcription:status',
+  SidecarStatus: 'sidecar:status',
+  Screenshot: 'sidecar:screenshot'
 } as const
 
 export type HotkeyAction =
@@ -60,15 +61,6 @@ export interface AnswerError {
   message: string
 }
 
-/**
- * One chunk of microphone PCM crossing IPC from renderer to main. `pcmBase64`
- * is base64-encoded signed 16-bit little-endian mono PCM at 16 kHz. Phase 4
- * replaces this channel with the Swift sidecar.
- */
-export interface AudioFramePayload {
-  pcmBase64: string
-}
-
 /** The full immutable transcript pushed to the renderer after every change. */
 export interface TranscriptUpdatePayload {
   segments: TranscriptSegment[]
@@ -78,4 +70,20 @@ export interface TranscriptUpdatePayload {
 export interface TranscriptionStatusPayload {
   ready: boolean
   detail: string
+}
+
+/**
+ * Reports the live state of the Swift capture sidecar. `paused` is shown to
+ * the user as an "audio paused" banner while the supervisor restarts a
+ * crashed sidecar.
+ */
+export interface SidecarStatusPayload {
+  state: 'capturing' | 'paused' | 'stopped' | 'error'
+  detail: string
+}
+
+/** One on-demand screenshot delivered by the sidecar, as a base64 PNG. */
+export interface ScreenshotPayload {
+  format: 'png'
+  dataBase64: string
 }
