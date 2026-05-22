@@ -1624,7 +1624,7 @@ import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { WHISPER } from '../config/constants'
-import { IpcChannel, type AudioFramePayload } from '../../shared/types'
+import { IpcChannel } from '../../shared/types'
 import {
   createPcmAccumulator,
   pushPcm,
@@ -2573,7 +2573,7 @@ export function useTranscript(): UseTranscript {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm run test -- tests/renderer/hooks/useTranscript.test.ts`
-Expected: PASS, 8 cases green.
+Expected: PASS, 7 cases green.
 
 - [ ] **Step 5: Commit**
 
