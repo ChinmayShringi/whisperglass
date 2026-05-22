@@ -2825,7 +2825,10 @@ git clone --depth 1 --branch "${WHISPER_TAG}" \
 
 cd "${BUILD_DIR}/whisper.cpp"
 echo "Configuring with CMake"
-cmake -B build
+# BUILD_SHARED_LIBS=OFF links libwhisper and the ggml libraries statically
+# into whisper-cli. The Metal shader library is embedded by default, so the
+# result is a single self-contained binary with no @rpath dylib dependencies.
+cmake -B build -DBUILD_SHARED_LIBS=OFF
 echo "Building whisper-cli (Release)"
 cmake --build build --config Release -j
 
