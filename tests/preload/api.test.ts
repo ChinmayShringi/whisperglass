@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createOverlayApi } from '../../src/preload/api'
+import { createOverlayApi, type IpcRendererLike } from '../../src/preload/api'
 import { IpcChannel } from '../../src/shared/types'
 
 describe('createOverlayApi', () => {
@@ -73,5 +73,59 @@ describe('createOverlayApi', () => {
     const unsubscribe = api.onCodexStatus(() => {})
     unsubscribe()
     expect(removeListener).toHaveBeenCalledWith(IpcChannel.CodexStatus, expect.any(Function))
+  })
+})
+
+describe('createOverlayApi transcription methods', () => {
+  function makeIpc(): IpcRendererLike & {
+    sent: { channel: string; args: unknown[] }[]
+    listeners: Record<string, (e: unknown, p: unknown) => void>
+  } {
+    const sent: { channel: string; args: unknown[] }[] = []
+    const listeners: Record<string, (e: unknown, p: unknown) => void> = {}
+    return {
+      sent,
+      listeners,
+      send: (channel: string, ...args: unknown[]) => sent.push({ channel, args }),
+      on: (channel: string, listener: (...a: unknown[]) => void) => {
+        listeners[channel] = listener as (e: unknown, p: unknown) => void
+      },
+      removeListener: () => {}
+    }
+  }
+
+  it('startTranscription sends on the StartTranscription channel', () => {
+    const ipc = makeIpc()
+    createOverlayApi(ipc).startTranscription()
+    expect(ipc.sent[0].channel).toBe(IpcChannel.StartTranscription)
+  })
+
+  it('stopTranscription sends on the StopTranscription channel', () => {
+    const ipc = makeIpc()
+    createOverlayApi(ipc).stopTranscription()
+    expect(ipc.sent[0].channel).toBe(IpcChannel.StopTranscription)
+  })
+
+  it('sendAudioFrame sends the frame payload on the AudioFrame channel', () => {
+    const ipc = makeIpc()
+    createOverlayApi(ipc).sendAudioFrame({ pcmBase64: 'AAAA' })
+    expect(ipc.sent[0].channel).toBe(IpcChannel.AudioFrame)
+    expect(ipc.sent[0].args[0]).toEqual({ pcmBase64: 'AAAA' })
+  })
+
+  it('onTranscriptUpdate subscribes to the TranscriptUpdate channel', () => {
+    const ipc = makeIpc()
+    const received: unknown[] = []
+    createOverlayApi(ipc).onTranscriptUpdate((payload) => received.push(payload))
+    ipc.listeners[IpcChannel.TranscriptUpdate]({}, { segments: [] })
+    expect(received).toEqual([{ segments: [] }])
+  })
+
+  it('onTranscriptionStatus subscribes to the TranscriptionStatus channel', () => {
+    const ipc = makeIpc()
+    const received: unknown[] = []
+    createOverlayApi(ipc).onTranscriptionStatus((payload) => received.push(payload))
+    ipc.listeners[IpcChannel.TranscriptionStatus]({}, { ready: true, detail: 'ok' })
+    expect(received).toEqual([{ ready: true, detail: 'ok' }])
   })
 })

@@ -28,5 +28,15 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
-  eslintConfigPrettier
+  eslintConfigPrettier,
+  {
+    // Test code is exempt from explicit-return-type and empty-function
+    // ceremony: test helpers and mock binaries do not benefit from the
+    // annotations that production src/** code requires.
+    files: ['tests/**/*.ts', 'tests/**/*.tsx', 'tests/**/*.mjs'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-empty-function': 'off'
+    }
+  }
 )
