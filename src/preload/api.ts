@@ -6,9 +6,10 @@ import {
   type AnswerResult,
   type AnswerError,
   type CodexStatus,
-  type AudioFramePayload,
   type TranscriptUpdatePayload,
-  type TranscriptionStatusPayload
+  type TranscriptionStatusPayload,
+  type SidecarStatusPayload,
+  type ScreenshotPayload
 } from '../shared/types'
 
 export interface IpcRendererLike {
@@ -27,9 +28,10 @@ export interface OverlayApi {
   onCodexStatus(callback: (status: CodexStatus) => void): () => void
   startTranscription(): void
   stopTranscription(): void
-  sendAudioFrame(frame: AudioFramePayload): void
   onTranscriptUpdate(callback: (update: TranscriptUpdatePayload) => void): () => void
   onTranscriptionStatus(callback: (status: TranscriptionStatusPayload) => void): () => void
+  onSidecarStatus(callback: (status: SidecarStatusPayload) => void): () => void
+  onScreenshot(callback: (screenshot: ScreenshotPayload) => void): () => void
 }
 
 export function createOverlayApi(ipcRenderer: IpcRendererLike): OverlayApi {
@@ -48,8 +50,9 @@ export function createOverlayApi(ipcRenderer: IpcRendererLike): OverlayApi {
     onCodexStatus: (callback) => subscribe(IpcChannel.CodexStatus, callback),
     startTranscription: () => ipcRenderer.send(IpcChannel.StartTranscription),
     stopTranscription: () => ipcRenderer.send(IpcChannel.StopTranscription),
-    sendAudioFrame: (frame) => ipcRenderer.send(IpcChannel.AudioFrame, frame),
     onTranscriptUpdate: (callback) => subscribe(IpcChannel.TranscriptUpdate, callback),
-    onTranscriptionStatus: (callback) => subscribe(IpcChannel.TranscriptionStatus, callback)
+    onTranscriptionStatus: (callback) => subscribe(IpcChannel.TranscriptionStatus, callback),
+    onSidecarStatus: (callback) => subscribe(IpcChannel.SidecarStatus, callback),
+    onScreenshot: (callback) => subscribe(IpcChannel.Screenshot, callback)
   }
 }
