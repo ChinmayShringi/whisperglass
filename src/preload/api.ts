@@ -2,6 +2,7 @@ import {
   IpcChannel,
   type OverlayState,
   type AskQuestionRequest,
+  type ContextAskRequest,
   type AnswerChunk,
   type AnswerResult,
   type AnswerError,
@@ -22,6 +23,8 @@ export interface OverlayApi {
   toggleInvisibility(): void
   onOverlayState(callback: (state: OverlayState) => void): () => void
   askQuestion(request: AskQuestionRequest): void
+  askContextQuestion(request: ContextAskRequest): void
+  requestScreenshot(): void
   onAnswerChunk(callback: (chunk: AnswerChunk) => void): () => void
   onAnswerDone(callback: (result: AnswerResult) => void): () => void
   onAnswerError(callback: (error: AnswerError) => void): () => void
@@ -44,6 +47,8 @@ export function createOverlayApi(ipcRenderer: IpcRendererLike): OverlayApi {
     toggleInvisibility: () => ipcRenderer.send(IpcChannel.ToggleInvisibility),
     onOverlayState: (callback) => subscribe(IpcChannel.OverlayState, callback),
     askQuestion: (request) => ipcRenderer.send(IpcChannel.AskQuestion, request),
+    askContextQuestion: (request) => ipcRenderer.send(IpcChannel.AskContextQuestion, request),
+    requestScreenshot: () => ipcRenderer.send(IpcChannel.RequestScreenshot),
     onAnswerChunk: (callback) => subscribe(IpcChannel.AnswerChunk, callback),
     onAnswerDone: (callback) => subscribe(IpcChannel.AnswerDone, callback),
     onAnswerError: (callback) => subscribe(IpcChannel.AnswerError, callback),
