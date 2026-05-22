@@ -14,7 +14,7 @@ export function App(): React.JSX.Element {
   const [invisible, setInvisible] = useState(false)
   const [setupMessage, setSetupMessage] = useState<string | null>(null)
   const { state, ask, retry } = useCodexAnswer()
-  const { segments, listening, startListening, stopListening } = useTranscript()
+  const { segments, listening, audioPaused, startListening, stopListening } = useTranscript()
 
   useEffect(() => {
     const offState = window.customcluely.onOverlayState((overlay: OverlayState) => {
@@ -32,6 +32,11 @@ export function App(): React.JSX.Element {
   return (
     <div className="app">
       <SetupBanner message={setupMessage} />
+      {audioPaused && (
+        <p className="app__audio-paused" role="status">
+          Audio paused, reconnecting capture...
+        </p>
+      )}
       <div className="app__bar">
         <CommandBar onSubmit={ask} disabled={state.status === 'streaming'} />
         <ListenToggle

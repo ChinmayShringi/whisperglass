@@ -20,10 +20,12 @@ import { nextPosition } from './windows/position'
 import { registerGlobalHotkeys, unregisterGlobalHotkeys } from './hotkeys/global-hotkeys'
 import { registerIpcHandlers } from './ipc/ipc-handlers'
 import { resolveWhisperPaths } from './transcription/resolve-whisper-paths'
+import { resolveSidecarPath } from './transcription/resolve-sidecar-path'
 import { downloadModel, type HttpResponse } from './transcription/model-downloader'
 import { createTranscriptionService } from './transcription/transcription-service'
 import { runWhisper } from './transcription/whisper-runner'
-import { MOVE_STEP_PX, CODEX, WHISPER } from './config/constants'
+import { createSidecarSupervisor } from './sidecar/sidecar-supervisor'
+import { MOVE_STEP_PX, CODEX, WHISPER, SIDECAR } from './config/constants'
 import { IpcChannel, type HotkeyAction } from '../shared/types'
 
 let overlay: BrowserWindow | null = null
@@ -87,7 +89,7 @@ function emitToOverlay(channel: string, payload: unknown): void {
 }
 
 // Fetches the model over HTTPS and adapts the response to the downloader's
-// injected HttpResponse shape. This is the only network call in Phase 3.
+// injected HttpResponse shape. This is the only network call in the app.
 async function fetchModelHttp(url: string): Promise<HttpResponse> {
   const response = await fetch(url)
   if (!response.ok || !response.body) {
@@ -112,7 +114,7 @@ function writeModelStream(path: string, chunks: Buffer[]): Promise<void> {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.customcluely.app')
+  electronApp.setAppUserModelId(SIDECAR.appBundleId)
   app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win))
 
   const codexPath = resolveCodexPath({ fileExists: existsSync, runWhich })
@@ -134,16 +136,49 @@ app.whenReady().then(() => {
     command: codexPath ?? undefined
   })
 
-  // Resolve the bundled whisper assets. In a packaged app the resources live
+  // Resolve the bundled native assets. In a packaged app the resources live
   // under process.resourcesPath; in dev they live under the repo `resources`.
   const resourcesRoot = is.dev ? join(app.getAppPath(), 'resources') : process.resourcesPath
   const whisperPaths = resolveWhisperPaths({ resourcesRoot, fileExists: existsSync })
+  const sidecarPaths = resolveSidecarPath({ resourcesRoot, fileExists: existsSync })
 
   const transcriptionService = createTranscriptionService({
     emit: emitToOverlay,
     runWhisper,
     modelPath: whisperPaths.modelPath,
     command: whisperPaths.binaryPath
+  })
+
+  // The Swift capture sidecar: it captures system audio and the microphone,
+  // takes screenshots, and is supervised with restart-on-crash. Its audio
+  // frames are routed straight into the transcription service with the
+  // matching capture source so the speaker hint is correct.
+  const sidecar = createSidecarSupervisor({
+    command: sidecarPaths.binaryPath,
+    prefixArgs: [],
+    appBundleId: SIDECAR.appBundleId,
+    baseBackoffMs: SIDECAR.baseBackoffMs,
+    maxBackoffMs: SIDECAR.maxBackoffMs,
+    stableUptimeMs: SIDECAR.stableUptimeMs,
+    onAudio: (frame) => {
+      void transcriptionService.handleAudioFrame({ pcmBase64: frame.pcm }, frame.source)
+    },
+    onScreenshot: (screenshot) => emitToOverlay(IpcChannel.Screenshot, screenshot),
+    onStatus: (status) => emitToOverlay(IpcChannel.SidecarStatus, status),
+    onPermission: (permission) => {
+      // A denied permission is surfaced through the sidecar status channel so
+      // the renderer can show a banner that deep-links to System Settings.
+      if (!permission.granted) {
+        const pane =
+          permission.kind === 'screen'
+            ? 'Screen Recording'
+            : 'Microphone'
+        emitToOverlay(IpcChannel.SidecarStatus, {
+          state: 'error',
+          detail: `${pane} permission is denied. Grant it to Customcluely in System Settings > Privacy & Security > ${pane}.`
+        })
+      }
+    }
   })
 
   registerIpcHandlers(ipcMain, {
@@ -154,18 +189,16 @@ app.whenReady().then(() => {
     onAskQuestion: (request) => {
       void codexService.handleAsk(request)
     },
-    // Starting a listening session resets the rolling audio state so the new
-    // session never inherits stale PCM or transcript text from a prior one.
+    // Starting a listening session resets the rolling audio state and starts
+    // the Swift sidecar capturing system audio and the microphone.
     onStartTranscription: () => {
       transcriptionService.reset()
+      sidecar.start()
     },
-    // Stopping likewise clears the accumulator and rolling state. After this,
-    // the renderer has released the microphone and sends no further frames.
+    // Stopping clears the rolling state. The sidecar keeps running so a
+    // restart is fast; it is fully shut down only on app quit.
     onStopTranscription: () => {
       transcriptionService.reset()
-    },
-    onAudioFrame: (frame) => {
-      void transcriptionService.handleAudioFrame(frame)
     }
   })
 
@@ -173,6 +206,15 @@ app.whenReady().then(() => {
     getVersion: () => getCodexVersion(codexPath),
     authFileExists: () => existsSync(join(homedir(), '.codex', 'auth.json'))
   }).then((status) => emitToOverlay(IpcChannel.CodexStatus, status))
+
+  // Report sidecar availability so the renderer can warn if the binary is
+  // missing (it must be built by scripts/setup-sidecar.sh).
+  if (!sidecarPaths.binaryPresent) {
+    emitToOverlay(IpcChannel.SidecarStatus, {
+      state: 'error',
+      detail: 'The capture sidecar is missing. Run scripts/setup-sidecar.sh.'
+    })
+  }
 
   // Download the whisper model on first run, then report readiness. The
   // binary must already be present (built by scripts/setup-whisper.sh).
@@ -209,6 +251,11 @@ app.whenReady().then(() => {
   }
 
   registerGlobalHotkeys(globalShortcut, handleHotkey)
+
+  // Shut the sidecar down cleanly before the app exits.
+  app.on('will-quit', () => {
+    void sidecar.shutdown()
+  })
 })
 
 app.on('will-quit', () => unregisterGlobalHotkeys(globalShortcut))
