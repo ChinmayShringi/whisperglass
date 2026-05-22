@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../../src/renderer/src/App'
-import type { TranscriptUpdatePayload } from '../../src/shared/types'
+import type { ScreenshotPayload, TranscriptUpdatePayload } from '../../src/shared/types'
 
 let askQuestion: ReturnType<typeof vi.fn>
 let askContextQuestion: ReturnType<typeof vi.fn>
 let requestScreenshot: ReturnType<typeof vi.fn>
 let startTranscription: ReturnType<typeof vi.fn>
 let transcriptUpdateCb: (p: TranscriptUpdatePayload) => void
+let screenshotCb: (p: ScreenshotPayload) => void
+let answerDoneCb: (r: { requestId: string; text: string }) => void
 
 beforeEach(() => {
   askQuestion = vi.fn()
@@ -17,6 +19,7 @@ beforeEach(() => {
   requestScreenshot = vi.fn()
   startTranscription = vi.fn()
   transcriptUpdateCb = () => {}
+  screenshotCb = () => {}
   window.whisperglass = {
     toggleInvisibility: vi.fn(),
     onOverlayState: vi.fn(() => () => {}),
@@ -24,7 +27,10 @@ beforeEach(() => {
     askContextQuestion,
     requestScreenshot,
     onAnswerChunk: vi.fn(() => () => {}),
-    onAnswerDone: vi.fn(() => () => {}),
+    onAnswerDone: vi.fn((cb) => {
+      answerDoneCb = cb
+      return () => {}
+    }),
     onAnswerError: vi.fn(() => () => {}),
     onCodexStatus: vi.fn(() => () => {}),
     startTranscription,
@@ -35,8 +41,15 @@ beforeEach(() => {
     }),
     onTranscriptionStatus: vi.fn(() => () => {}),
     onSidecarStatus: vi.fn(() => () => {}),
-    onScreenshot: vi.fn(() => () => {})
+    onScreenshot: vi.fn((cb) => {
+      screenshotCb = cb
+      return () => {}
+    })
   }
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('App', () => {
@@ -106,5 +119,94 @@ describe('App', () => {
     // The transcript panel still renders the line, but the insight surface does
     // not: only the transcript-panel copy of the text exists, not an insight button.
     expect(screen.queryByRole('button', { name: /question.*when do we ship/i })).toBeNull()
+  })
+
+  // Auto-answer behavior: detected questions trigger askContextQuestion after
+  // a short debounce so users do not have to press Tab during a live meeting.
+  // Uses real timers and waitFor: the 1.5s debounce is short enough that the
+  // test cost is tolerable, and fake timers interact poorly with userEvent.
+  it('auto-answers a detected question after the debounce', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /listening: off/i }))
+    act(() => {
+      transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
+    })
+    expect(askContextQuestion).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(askContextQuestion).toHaveBeenCalledOnce(), {
+      timeout: 2500,
+      interval: 100
+    })
+    const sent = askContextQuestion.mock.calls[0][0]
+    expect(sent.question.toLowerCase()).toContain('when do we ship')
+    expect(sent.screenshot).toBe(false)
+  })
+
+  it('does not auto-answer while the session is inactive', async () => {
+    render(<App />)
+    // Session never started, so even a question-shaped segment must not fire,
+    // even after the full debounce window has elapsed.
+    act(() => {
+      transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
+    })
+    await new Promise((r) => setTimeout(r, 1800))
+    expect(askContextQuestion).not.toHaveBeenCalled()
+  })
+
+  it('auto-answers each new question id only once', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /listening: off/i }))
+    act(() => {
+      transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
+    })
+    await vi.waitFor(() => expect(askContextQuestion).toHaveBeenCalledOnce(), {
+      timeout: 2500,
+      interval: 100
+    })
+    // Re-deliver the SAME segment id; must not fire a second time even after
+    // another full debounce window.
+    act(() => {
+      transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
+    })
+    await new Promise((r) => setTimeout(r, 1800))
+    expect(askContextQuestion).toHaveBeenCalledOnce()
+  })
+
+  // Screenshot UX: the renderer shows a toast on capture and attaches the
+  // pending shot to the next context-ask.
+  it('shows a toast when a screenshot arrives', () => {
+    render(<App />)
+    act(() => {
+      screenshotCb({ format: 'png', dataBase64: 'AAAA' })
+    })
+    expect(screen.getByText(/screenshot captured/i)).toBeInTheDocument()
+  })
+
+  it('passes screenshot:true to the next Default Action after a capture', async () => {
+    render(<App />)
+    act(() => {
+      screenshotCb({ format: 'png', dataBase64: 'AAAA' })
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Recap' }))
+    expect(askContextQuestion).toHaveBeenCalledOnce()
+    const sent = askContextQuestion.mock.calls[0][0]
+    expect(sent.screenshot).toBe(true)
+  })
+
+  it('clears the pending screenshot after one ask, so the next one is shot-free', async () => {
+    render(<App />)
+    act(() => {
+      screenshotCb({ format: 'png', dataBase64: 'AAAA' })
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Recap' }))
+    // Simulate the codex run completing so busy flips back to false and the
+    // Default Action buttons re-enable for the second click.
+    const firstRequestId = askContextQuestion.mock.calls[0][0].requestId
+    act(() => {
+      answerDoneCb({ requestId: firstRequestId, text: 'done' })
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Recap' }))
+    expect(askContextQuestion).toHaveBeenCalledTimes(2)
+    expect(askContextQuestion.mock.calls[0][0].screenshot).toBe(true)
+    expect(askContextQuestion.mock.calls[1][0].screenshot).toBe(false)
   })
 })
