@@ -9,9 +9,11 @@ export interface IpcHandlerDeps {
   onAskQuestion(request: unknown): void
   onStartTranscription(): void
   onStopTranscription(): void
-  onAudioFrame(frame: unknown): void
 }
 
+// Registers the renderer-to-main IPC channels. The Phase 3 AudioFrame channel
+// is gone: in Phase 4 audio is captured by the Swift sidecar, so the renderer
+// no longer produces PCM. Start/stop transcription now also drive the sidecar.
 export function registerIpcHandlers(ipcMain: IpcMainLike, deps: IpcHandlerDeps): void {
   ipcMain.on(IpcChannel.ToggleInvisibility, () => deps.onToggleInvisibility())
   ipcMain.on(IpcChannel.AskQuestion, (...args: unknown[]) => {
@@ -19,7 +21,4 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, deps: IpcHandlerDeps):
   })
   ipcMain.on(IpcChannel.StartTranscription, () => deps.onStartTranscription())
   ipcMain.on(IpcChannel.StopTranscription, () => deps.onStopTranscription())
-  ipcMain.on(IpcChannel.AudioFrame, (...args: unknown[]) => {
-    deps.onAudioFrame(args[1])
-  })
 }
