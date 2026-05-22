@@ -14,11 +14,11 @@ latest release built from the `main` branch.
 
 Please do not open a public issue for security vulnerabilities.
 
-Report security issues privately through one of these channels:
+Report security issues privately through GitHub:
 
-- **GitHub private vulnerability reporting:** open the **Security** tab of
-  this repository and choose **Report a vulnerability**.
-- **Email:** shringiishaan@gmail.com
+- Open the **Security** tab of this repository and choose
+  **Report a vulnerability**. This opens a confidential channel visible
+  only to the maintainers.
 
 When reporting, please include:
 
