@@ -663,8 +663,8 @@ describe('buildPrompt', () => {
   })
 
   it('puts the transcript before the question', () => {
-    const prompt = buildPrompt('the question', 'you: the transcript')
-    expect(prompt.indexOf('you: the transcript')).toBeLessThan(prompt.indexOf('the question'))
+    const prompt = buildPrompt('what was decided', 'you: the transcript')
+    expect(prompt.indexOf('you: the transcript')).toBeLessThan(prompt.indexOf('what was decided'))
   })
 })
 ```
@@ -874,7 +874,12 @@ import { buildCodexArgs } from './codex-args'
 import { runCodexQuery } from './codex-runner'
 import { validateAskRequest } from './request-validation'
 import { CODEX, CONTEXT } from '../config/constants'
-import { IpcChannel, type AskQuestionRequest, type ContextAskRequest } from '../../shared/types'
+import {
+  IpcChannel,
+  type AskQuestionRequest,
+  type ContextAskRequest,
+  type TranscriptSegment
+} from '../../shared/types'
 
 export interface CodexServiceDeps {
   /** Directory where per-query scratch files are written. */
@@ -911,15 +916,16 @@ function validateContextRequest(value: unknown): ContextAskRequest {
   const base = validateAskRequest(value)
   const record = value as Record<string, unknown>
   const rawSegments = Array.isArray(record.segments) ? record.segments : []
-  const segments = rawSegments.flatMap((entry) => {
+  const segments = rawSegments.flatMap((entry): TranscriptSegment[] => {
     if (entry && typeof entry === 'object') {
       const seg = entry as Record<string, unknown>
+      const speaker = seg.speaker
       if (
         typeof seg.id === 'string' &&
-        (seg.speaker === 'you' || seg.speaker === 'them') &&
+        (speaker === 'you' || speaker === 'them') &&
         typeof seg.text === 'string'
       ) {
-        return [{ id: seg.id, speaker: seg.speaker, text: seg.text }]
+        return [{ id: seg.id, speaker, text: seg.text }]
       }
     }
     return []
