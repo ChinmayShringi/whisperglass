@@ -2905,7 +2905,7 @@ Replace the entire contents of `tests/renderer/App.test.tsx` with this version (
 ```typescript
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../../src/renderer/src/App'
 import type { TranscriptUpdatePayload } from '../../src/shared/types'
@@ -2989,12 +2989,18 @@ describe('App', () => {
 
   it('starting a session starts transcription and reveals detected insights', async () => {
     render(<App />)
-    await userEvent.click(screen.getByRole('button', { name: /start listening/i }))
+    // ListenToggle exposes its accessible name via aria-label ("Listening: off"
+    // / "Listening: on"), which overrides the visible "Start listening" text.
+    await userEvent.click(screen.getByRole('button', { name: /listening: off/i }))
     expect(startTranscription).toHaveBeenCalledOnce()
     act(() => {
       transcriptUpdateCb({ segments: [{ id: 's1', speaker: 'them', text: 'when do we ship?' }] })
     })
-    expect(await screen.findByText('when do we ship?')).toBeInTheDocument()
+    // The detected question appears in the insight surface (the text also
+    // appears in the transcript panel, so scope the assertion to the insight
+    // list to confirm the insight specifically was revealed).
+    const insightList = await screen.findByRole('button', { name: /when do we ship/i })
+    expect(within(insightList).getByText('when do we ship?')).toBeInTheDocument()
   })
 
   it('does not show insights before a session is started', () => {
