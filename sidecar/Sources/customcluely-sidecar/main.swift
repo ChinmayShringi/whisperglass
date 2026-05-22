@@ -1,7 +1,27 @@
-// Phase 4 Task 1 placeholder entry point. The full stdin/stdout loop and the
-// capture units are added in later tasks (Task 6 onward). This minimal body
-// lets the executable target compile so `swift test` can build the package.
 import Foundation
 
-FileHandle.standardError.write(Data("customcluely-sidecar: not yet wired\n".utf8))
-exit(0)
+// Entry point for the Customcluely capture sidecar. It reads newline-delimited
+// JSON commands from stdin, drives the capture units through CaptureCoordinator,
+// and writes newline-delimited JSON events to stdout. The stdin read loop runs
+// on a dedicated thread; the main run loop stays alive so async capture
+// callbacks (ScreenCaptureKit, AVAudioEngine) keep firing.
+
+// Both types are `@unchecked Sendable` with internal locking, so referencing
+// them from the dedicated stdin read thread below is safe.
+let transport = StdioTransport()
+let coordinator = CaptureCoordinator(transport: transport)
+
+let readThread = Thread {
+    transport.readLoop { command in
+        let result = coordinator.handle(command)
+        if result.shouldExit {
+            exit(0)
+        }
+    }
+}
+readThread.stackSize = 1 << 20
+readThread.start()
+
+// Keep the process alive for async capture callbacks until `shutdown` calls
+// exit(0) from the read thread.
+RunLoop.main.run()
