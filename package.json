@@ -1,6 +1,6 @@
 {
   "name": "whisperglass",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local-first macOS AI meeting-copilot overlay: on-device transcription, answers via the codex CLI, no API key.",
   "main": "./out/main/index.js",
   "author": "Chinmay Shringi",

@@ -10,9 +10,9 @@ Whisperglass is a macOS-only desktop app that delivers live meeting insights. It
 - On-device transcription of both the microphone and system audio, captured by a native Swift sidecar.
 - Streamed AI answers via `codex exec`, rendered token-by-token into the answer panel.
 - Default Actions: one-click preset prompts for "What should I say next", "Follow-up questions", "Fact check", "Recap", and "Coding help".
-- Dynamic insight detection: questions and salient keywords are detected from the live transcript and surfaced below the command bar.
+- Dynamic insight detection: questions and salient keywords are detected from the live transcript and surfaced below the command bar. Detected questions are auto-answered after a short debounce while listening, so an answer arrives without any button press.
 - Rolling transcript summary that keeps the Codex prompt bounded as a meeting runs long.
-- Screenshot context: a screen capture can be attached to a query so an answer can reference on-screen content.
+- Screenshot context: pressing the Screenshot button (or Cmd+Shift+S) captures the screen, shows a confirmation toast, and attaches the shot to the next Default Action or insight answer so the response can reference on-screen content.
 - Explicit meeting sessions: insights surface only while a session is active.
 
 ## Architecture
@@ -56,7 +56,7 @@ The whisper model file is downloaded automatically on first app run, not by the 
 
 ## Project status
 
-The automated test suite passes: 337 tests across 50 files (`npm run test`). The TypeScript typecheck (`npm run typecheck`) and the production build (`npm run build`) are clean, `npm run lint` exits 0 (prettier formatting warnings only, no errors), and the Swift sidecar tests pass (`swift test --package-path sidecar`, 13 tests).
+The automated test suite passes: 343 tests across 50 files (`npm run test`). The TypeScript typecheck (`npm run typecheck`) and the production build (`npm run build`) are clean, `npm run lint` exits 0 (prettier formatting warnings only, no errors), and the Swift sidecar tests pass (`swift test --package-path sidecar`, 13 tests).
 
 Full manual GUI verification is still pending: the microphone and screen-capture flows, the macOS permission prompts (Screen Recording, Microphone), and the invisibility toggle need to be exercised against the real app. See `docs/superpowers/verification/` for the per-phase manual checklists.
 
